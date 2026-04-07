@@ -39,6 +39,10 @@
             'full' => 'Full',
             'incremental' => 'Incremental',
         ],
+        'connection' => collect(config('database.connections', []))
+            ->keys()
+            ->mapWithKeys(fn (string $connection) => [$connection => $connection])
+            ->all(),
         'format' => [
             'sql' => 'SQL',
             'json' => 'JSON',
@@ -70,11 +74,14 @@
             'full_only' => 'Full Only',
             'always_on' => 'Always On',
         ],
-        'drivers.default' => [
-            'full' => 'Full',
-            'incremental' => 'Incremental',
-            'local' => 'Local',
-        ],
+        'storage.disk' => collect(config('filesystems.disks', []))
+            ->keys()
+            ->mapWithKeys(fn (string $disk) => [$disk => $disk])
+            ->all(),
+        'restore.disk' => collect(config('filesystems.disks', []))
+            ->keys()
+            ->mapWithKeys(fn (string $disk) => [$disk => $disk])
+            ->all(),
     ];
 
     $fieldHelp = [
@@ -82,7 +89,11 @@
         'tables.include' => 'Leave empty to include every table except those in the exclude list.',
         'tables.exclude' => 'Enter one table name per line.',
         'schedule.tables' => 'Optional table subset for scheduled backups. Use one table name per line.',
-        'ui.middleware' => 'One middleware entry per line.',
+    ];
+
+    $fieldLabels = [
+        'tables.include' => 'Include',
+        'tables.exclude' => 'Exclude',
     ];
 
     $generalSettings = [];
@@ -231,6 +242,7 @@
                         'buildFieldName' => $buildFieldName,
                         'fieldOptions' => $fieldOptions,
                         'fieldHelp' => $fieldHelp,
+                        'fieldLabels' => $fieldLabels,
                     ])
                 </div>
             </div>
@@ -249,6 +261,7 @@
                             'buildFieldName' => $buildFieldName,
                             'fieldOptions' => $fieldOptions,
                             'fieldHelp' => $fieldHelp,
+                            'fieldLabels' => $fieldLabels,
                         ])
                     </div>
                 </div>
@@ -257,7 +270,6 @@
 
         <div class="card">
             <h2>Save Changes</h2>
-            <p class="muted">Submitting this form writes every config leaf shown above to the `smart_backup_settings` table.</p>
             <button type="submit" class="button primary">Save Settings</button>
         </div>
     </form>

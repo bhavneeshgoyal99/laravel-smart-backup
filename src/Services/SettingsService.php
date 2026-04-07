@@ -78,18 +78,16 @@ class SettingsService
                 : $default;
         }
 
-        foreach ($stored as $key => $value) {
-            if (! array_key_exists($key, $flatSettings)) {
-                $flatSettings[$key] = $this->restoreValue($value, null);
-            }
-        }
-
         return Arr::undot($flatSettings);
     }
 
     public function defaults(): array
     {
-        return (array) $this->config->get('backup', []);
+        $defaults = (array) $this->config->get('backup', []);
+
+        unset($defaults['drivers'], $defaults['ui']);
+
+        return $defaults;
     }
 
     public function leafDefaults(): array

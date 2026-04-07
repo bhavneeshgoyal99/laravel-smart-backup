@@ -3,7 +3,7 @@
         $path = $prefix === '' ? $key : $prefix . '.' . $key;
         $id = 'setting-' . str_replace(['.', '[', ']'], '-', $path);
         $name = $buildFieldName($path);
-        $label = $formatLabel($key);
+        $label = $fieldLabels[$path] ?? $formatLabel($key);
         $selected = old($path, $value);
         $options = $fieldOptions[$path] ?? null;
         $arrayValue = is_array($selected) ? $selected : (is_array($value) ? $value : []);
@@ -21,6 +21,7 @@
                     'buildFieldName' => $buildFieldName,
                     'fieldOptions' => $fieldOptions,
                     'fieldHelp' => $fieldHelp,
+                    'fieldLabels' => $fieldLabels,
                 ])
             </div>
         </div>
