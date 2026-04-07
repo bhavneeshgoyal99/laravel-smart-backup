@@ -11,7 +11,8 @@ class BackupHistoryService
     public function __construct(
         protected DatabaseManager $database,
         protected BackupStorageService $storage,
-        protected Config $config
+        protected Config $config,
+        protected SettingsService $settings
     ) {
     }
 
@@ -94,14 +95,14 @@ class BackupHistoryService
     public function dashboardConfig(): array
     {
         return [
-            'mode' => $this->config->get('backup.mode'),
-            'format' => $this->config->get('backup.format'),
-            'disk' => $this->config->get('backup.storage.disk'),
-            'path' => $this->config->get('backup.storage.path'),
-            'chunk_size' => $this->config->get('backup.chunk_size'),
-            'schedule' => $this->config->get('backup.schedule'),
-            'maintenance' => $this->config->get('backup.maintenance'),
-            'ui' => $this->config->get('backup.ui'),
+            'mode' => $this->settings->get('mode'),
+            'format' => $this->settings->get('format'),
+            'disk' => $this->settings->get('storage.disk'),
+            'path' => $this->settings->get('storage.path'),
+            'chunk_size' => $this->settings->get('chunk_size'),
+            'schedule' => $this->settings->get('schedule'),
+            'maintenance' => $this->settings->get('maintenance'),
+            'ui' => $this->settings->get('ui'),
         ];
     }
 }

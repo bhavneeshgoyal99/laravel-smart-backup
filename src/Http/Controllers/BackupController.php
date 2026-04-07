@@ -5,6 +5,7 @@ namespace BhavneeshGoyal\LaravelSmartBackup\Http\Controllers;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupManager;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupHistoryService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\RestoreService;
+use BhavneeshGoyal\LaravelSmartBackup\Services\SettingsService;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +20,8 @@ class BackupController extends Controller
         protected BackupManager $backupManager,
         protected RestoreService $restoreService,
         protected BackupHistoryService $history,
-        protected Config $config
+        protected Config $config,
+        protected SettingsService $settings
     ) {
     }
 
@@ -129,8 +131,19 @@ class BackupController extends Controller
     public function settings(): View
     {
         return view('smart-backup::settings', [
-            'settings' => $this->history->dashboardConfig(),
+            'settings' => $this->settings->all(),
         ]);
+    }
+
+    public function updateSettings(Request $request): RedirectResponse
+    {
+        foreach ($this->settings->sanitizeInput($request->except(['_token', '_method'])) as $key => $value) {
+            $this->settings->set($key, $value);
+        }
+
+        return redirect()
+            ->route($this->routeName('settings'))
+            ->with('status', 'Settings updated successfully.');
     }
 
     protected function routeName(string $suffix): string

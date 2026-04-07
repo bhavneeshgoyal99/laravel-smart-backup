@@ -13,6 +13,7 @@ use BhavneeshGoyal\LaravelSmartBackup\Services\BackupStorageService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\MaintenanceModeService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\RestoreService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\SchedulerService;
+use BhavneeshGoyal\LaravelSmartBackup\Services\SettingsService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\TableSelectionService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Route;
@@ -39,11 +40,16 @@ class BackupServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->singleton(SettingsService::class, function ($app) {
+            return new SettingsService($app['config'], $app['db']);
+        });
+
         $this->app->singleton(BackupHistoryService::class, function ($app) {
             return new BackupHistoryService(
                 $app['db'],
                 $app->make(BackupStorageService::class),
-                $app['config']
+                $app['config'],
+                $app->make(SettingsService::class)
             );
         });
 
@@ -66,7 +72,8 @@ class BackupServiceProvider extends ServiceProvider
                 $app->make(TableSelectionService::class),
                 $app->make(MaintenanceModeService::class),
                 $app->make(BackupMetadataService::class),
-                $app['log']
+                $app['log'],
+                $app->make(SettingsService::class)
             );
         });
 

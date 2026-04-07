@@ -3,6 +3,7 @@
 namespace BhavneeshGoyal\LaravelSmartBackup\Services;
 
 use BhavneeshGoyal\LaravelSmartBackup\Drivers\DriverManager;
+use BhavneeshGoyal\LaravelSmartBackup\Services\SettingsService;
 use Illuminate\Contracts\Config\Repository as Config;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -15,7 +16,8 @@ class BackupService
         protected TableSelectionService $tableSelectionService,
         protected MaintenanceModeService $maintenanceModeService,
         protected BackupMetadataService $metadataService,
-        protected LoggerInterface $logger
+        protected LoggerInterface $logger,
+        protected SettingsService $settings
     ) {
     }
 
@@ -25,23 +27,29 @@ class BackupService
         $mode = $this->resolveMode($options['mode'] ?? null);
         $resolvedDriver = $this->driverManager->driver($options['driver'] ?? $this->resolveDriverName($mode));
         $tables = $this->tableSelectionService->resolve(
-            $this->config->get('backup.connection'),
+            $this->settings->get('connection'),
             $this->resolveIncludedTables($options),
-            (array) $this->config->get('backup.tables.exclude', [])
+            (array) $this->settings->get('tables.exclude', [])
         );
+        $format = $this->resolveFormat($options['format'] ?? null);
+
+        if ($mode === 'incremental' && $format !== 'json') {
+            $format = 'json';
+        }
+
         $metadata = [
             'status' => 'running',
             'mode' => $mode,
             'driver' => $resolvedDriver->name(),
-            'format' => $this->resolveFormat($options['format'] ?? null),
-            'disk' => $this->config->get('backup.storage.disk'),
-            'path' => $this->config->get('backup.storage.path'),
-            'chunk_size' => (int) $this->config->get('backup.chunk_size', 1000),
-            'connection' => $this->config->get('backup.connection'),
+            'format' => $format,
+            'disk' => $this->settings->get('storage.disk'),
+            'path' => $this->settings->get('storage.path'),
+            'chunk_size' => (int) $this->settings->get('chunk_size', 1000),
+            'connection' => $this->settings->get('connection'),
             'started_at' => $startedAt->toDateTimeString(),
             'selected_tables' => $tables,
             'maintenance_mode' => [
-                'policy' => $this->config->get('backup.maintenance.policy'),
+                'policy' => $this->settings->get('maintenance.policy'),
                 'enabled' => false,
             ],
             'retry_attempts' => $this->retryAttempts(),
@@ -174,7 +182,7 @@ class BackupService
 
     protected function resolveMode(?string $mode = null): string
     {
-        $mode = $mode ?? (string) $this->config->get('backup.mode', 'full');
+        $mode = $mode ?? (string) $this->settings->get('mode', 'full');
 
         if (! in_array($mode, ['full', 'incremental'], true)) {
             return 'full';
@@ -185,7 +193,7 @@ class BackupService
 
     protected function resolveFormat(?string $format = null): string
     {
-        $format = $format ?? (string) $this->config->get('backup.format', 'sql');
+        $format = $format ?? (string) $this->settings->get('format', 'sql');
 
         if (! in_array($format, ['sql', 'json', 'csv'], true)) {
             return 'sql';
@@ -199,7 +207,7 @@ class BackupService
         $tables = $options['tables'] ?? null;
 
         if (! is_array($tables) || $tables === []) {
-            return (array) $this->config->get('backup.tables.include', []);
+            return (array) $this->settings->get('tables.include', []);
         }
 
         $normalized = [];
