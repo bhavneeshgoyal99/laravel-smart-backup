@@ -29,6 +29,12 @@
         <label for="{{ $id }}">
             {{ $label }}
 
+            @if (isset($fieldHelp[$path]))
+                <span class="field-note">{{ $fieldHelp[$path] }}</span>
+            @elseif (is_array($value))
+                <span class="field-note">Enter one value per line.</span>
+            @endif
+
             @if (is_bool($value))
                 <input type="hidden" name="{{ $name }}" value="0">
                 <div class="checkbox-field">
@@ -57,12 +63,6 @@
                 <input id="{{ $id }}" type="number" step="any" name="{{ $name }}" value="{{ $selected }}">
             @else
                 <input id="{{ $id }}" type="text" name="{{ $name }}" value="{{ $selected ?? '' }}">
-            @endif
-
-            @if (isset($fieldHelp[$path]))
-                <span class="field-note">{{ $fieldHelp[$path] }}</span>
-            @elseif (is_array($value))
-                <span class="field-note">Enter one value per line.</span>
             @endif
 
             @error($path)

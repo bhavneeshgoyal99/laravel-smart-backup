@@ -137,11 +137,13 @@
         .settings-panel {
             display: grid;
             gap: 16px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         .settings-subgroup {
             padding-top: 14px;
             border-top: 1px dashed var(--line);
+            grid-column: 1 / -1;
         }
 
         .settings-subgroup:first-child {
@@ -151,6 +153,14 @@
 
         .settings-subgroup h3 {
             margin-bottom: 12px;
+        }
+
+        .settings-panel > label {
+            min-width: 0;
+        }
+
+        .settings-subgroup .settings-panel {
+            grid-template-columns: 1fr;
         }
 
         .checkbox-field {
@@ -180,13 +190,18 @@
         .settings-panel > .card {
             width: 100%;
         }
+
         .settings-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
             gap: 24px;
+            grid-template-columns: 1fr !important;
         }
 
         @media (max-width: 768px) {
+            .settings-panel {
+                grid-template-columns: 1fr;
+            }
+
             .settings-grid {
                 grid-template-columns: 1fr;
             }
@@ -248,7 +263,7 @@
             </div>
         @endif
 
-        <div class="settings-panel">
+        <div class="settings-grid">
             @foreach ($groupedSettings as $group => $values)
                 <div class="card">
                     <h2>{{ $formatLabel($group) }}</h2>
