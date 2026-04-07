@@ -208,14 +208,6 @@
         }
     </style>
 
-    @if (session('status'))
-        <div class="flash success">{{ session('status') }}</div>
-    @endif
-
-    @if (session('error'))
-        <div class="flash error">{{ session('error') }}</div>
-    @endif
-
     <form method="POST" action="{{ route($routePrefix . 'settings.update') }}" class="settings-form">
         @csrf
 

@@ -16,6 +16,7 @@ class SettingsService
 
     public function get(string $key, $default = null)
     {
+        $key = $this->normalizeKey($key);
         $default = func_num_args() === 1
             ? $this->config->get('backup.' . $key)
             : $default;
@@ -39,6 +40,7 @@ class SettingsService
             return;
         }
 
+        $key = $this->normalizeKey($key);
         $now = now();
         $query = $this->database->table('smart_backup_settings')->where('key', $key);
         $payload = [
@@ -69,6 +71,7 @@ class SettingsService
         }
 
         $stored = $this->database->table('smart_backup_settings')->pluck('value', 'key')->toArray();
+        $stored = $this->normalizeStoredSettings($stored);
         $flatDefaults = $this->leafDefaults();
         $flatSettings = [];
 
@@ -97,7 +100,18 @@ class SettingsService
 
     public function sanitizeInput(array $input): array
     {
-        return $this->extractLeafValues($input, $this->defaults());
+        $input = $this->normalizeInputKeys($input);
+        $defaults = $this->defaults();
+        $values = [];
+
+        foreach ($this->leafDefaults() as $path => $default) {
+            $values[$path] = $this->coerceInputValue(
+                Arr::get($input, $path),
+                $default
+            );
+        }
+
+        return $values;
     }
 
     public function delete(string $key): void
@@ -106,7 +120,7 @@ class SettingsService
             return;
         }
 
-        $this->database->table('smart_backup_settings')->where('key', $key)->delete();
+        $this->database->table('smart_backup_settings')->where('key', $this->normalizeKey($key))->delete();
     }
 
     protected function tableExists(): bool
@@ -120,6 +134,7 @@ class SettingsService
 
         foreach ($settings as $key => $value) {
             $path = $prefix === '' ? $key : $prefix . '.' . $key;
+            $path = $this->normalizeKey($path);
 
             if (is_array($value) && ! $this->isLeafArray($value)) {
                 $flattened += $this->flattenSettings($value, $path);
@@ -130,30 +145,6 @@ class SettingsService
         }
 
         return $flattened;
-    }
-
-    protected function extractLeafValues(array $input, array $defaults, string $prefix = ''): array
-    {
-        $values = [];
-
-        foreach ($defaults as $key => $default) {
-            $path = $prefix === '' ? $key : $prefix . '.' . $key;
-            $submitted = $input[$key] ?? null;
-
-            if (is_array($default) && ! $this->isLeafArray($default)) {
-                $values += $this->extractLeafValues(
-                    is_array($submitted) ? $submitted : [],
-                    $default,
-                    $path
-                );
-
-                continue;
-            }
-
-            $values[$path] = $this->coerceInputValue($submitted, $default);
-        }
-
-        return $values;
     }
 
     protected function coerceInputValue(mixed $value, mixed $default): mixed
@@ -278,5 +269,44 @@ class SettingsService
         }
 
         return true;
+    }
+
+    protected function normalizeStoredSettings(array $settings): array
+    {
+        $normalized = [];
+
+        foreach ($settings as $key => $value) {
+            $normalized[$this->normalizeKey((string) $key)] = $value;
+        }
+
+        return $normalized;
+    }
+
+    protected function normalizeInputKeys(array $input): array
+    {
+        $normalized = [];
+
+        foreach ($input as $key => $value) {
+            $normalizedKey = is_string($key)
+                ? $this->normalizeKey($key)
+                : $key;
+
+            $normalized[$normalizedKey] = is_array($value)
+                ? $this->normalizeInputKeys($value)
+                : $value;
+        }
+
+        return $normalized;
+    }
+
+    protected function normalizeKey(string $key): string
+    {
+        $segments = explode('.', $key);
+
+        $segments = array_map(static function (string $segment): string {
+            return trim($segment, " \t\n\r\0\x0B`'\"");
+        }, $segments);
+
+        return implode('.', $segments);
     }
 }

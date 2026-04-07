@@ -1,9 +1,15 @@
 @foreach ($fields as $key => $value)
     @php
         $path = $prefix === '' ? $key : $prefix . '.' . $key;
+        $normalizedSegments = array_map(
+            static fn ($segment) => trim((string) $segment, " \t\n\r\0\x0B`'\""),
+            explode('.', $path)
+        );
+        $normalizedPath = implode('.', $normalizedSegments);
+        $normalizedKey = trim((string) $key, " \t\n\r\0\x0B`'\"");
         $id = 'setting-' . str_replace(['.', '[', ']'], '-', $path);
         $name = $buildFieldName($path);
-        $label = $fieldLabels[$path] ?? $formatLabel($key);
+        $label = $fieldLabels[$normalizedPath] ?? $formatLabel($normalizedKey);
         $selected = old($path, $value);
         $options = $fieldOptions[$path] ?? null;
         $arrayValue = is_array($selected) ? $selected : (is_array($value) ? $value : []);
