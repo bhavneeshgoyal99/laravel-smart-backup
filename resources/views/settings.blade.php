@@ -58,13 +58,14 @@
             'weekly' => 'Weekly',
             'monthly' => 'Monthly',
         ],
+        'schedule.timezone' => collect(\DateTimeZone::listIdentifiers())
+            ->mapWithKeys(fn (string $timezone) => [$timezone => $timezone])
+            ->all(),
         'schedule.mode' => [
-            '' => 'Use Default',
             'full' => 'Full',
             'incremental' => 'Incremental',
         ],
         'schedule.format' => [
-            '' => 'Use Default',
             'sql' => 'SQL',
             'json' => 'JSON',
             'csv' => 'CSV',
