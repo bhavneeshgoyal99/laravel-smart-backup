@@ -89,6 +89,77 @@ class BackupController extends Controller
         ]);
     }
 
+    public function restoreRun(Request $request, int|string $run): JsonResponse|RedirectResponse
+    {
+        $data = $request->validate([
+            'password' => ['nullable', 'string'],
+        ]);
+
+        $backupRun = $this->history->findRun($run);
+
+        if ($backupRun === null) {
+            if (! $request->expectsJson()) {
+                return redirect()
+                    ->route($this->routeName('backups.index'))
+                    ->with('error', 'Backup run not found.');
+            }
+
+            return response()->json([
+                'message' => 'Backup run not found.',
+            ], 404);
+        }
+
+        $files = $this->history->runTables($run)->filter(
+            static fn (array $table) => is_string($table['file_path'] ?? null) && $table['file_path'] !== ''
+        );
+
+        if ($files->isEmpty()) {
+            if (! $request->expectsJson()) {
+                return redirect()
+                    ->route($this->routeName('backups.index'))
+                    ->with('error', 'No tracked files were found for this backup run.');
+            }
+
+            return response()->json([
+                'message' => 'No tracked files were found for this backup run.',
+            ], 422);
+        }
+
+        $results = [];
+
+        try {
+            foreach ($files as $file) {
+                $results[] = $this->restoreService->restore([
+                    'file' => $file['file_path'],
+                    'table' => $file['table_name'],
+                    'disk' => $backupRun->disk,
+                    'password' => $data['password'] ?? null,
+                ]);
+            }
+        } catch (Throwable $exception) {
+            if (! $request->expectsJson()) {
+                return redirect()
+                    ->route($this->routeName('backups.index'))
+                    ->with('error', $exception->getMessage());
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
+
+        if (! $request->expectsJson()) {
+            return redirect()
+                ->route($this->routeName('backups.index'))
+                ->with('status', sprintf('Restore completed successfully for %d file(s).', count($results)));
+        }
+
+        return response()->json([
+            'message' => 'Restore completed.',
+            'data' => $results,
+        ]);
+    }
+
     public function destroy(Request $request, int|string $run): JsonResponse|RedirectResponse
     {
         if ($this->history->findRun($run) === null) {

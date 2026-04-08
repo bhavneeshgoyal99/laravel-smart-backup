@@ -61,6 +61,27 @@ class BackupHistoryService
         return $this->database->table('smart_backup_runs')->where('id', $runId)->first();
     }
 
+    public function runTables(int|string $runId): Collection
+    {
+        return $this->database->table('smart_backup_tables')
+            ->where('backup_run_id', $runId)
+            ->orderBy('id')
+            ->get()
+            ->map(function ($table) {
+                return [
+                    'id' => $table->id,
+                    'table_name' => $table->table_name,
+                    'type' => $table->type,
+                    'status' => $table->status,
+                    'file_path' => $table->file_path,
+                    'rows' => $table->rows,
+                    'chunks' => $table->chunks,
+                    'last_backup_at' => $table->last_backup_at,
+                ];
+            })
+            ->values();
+    }
+
     public function deleteRun(int|string $runId): bool
     {
         $run = $this->findRun($runId);

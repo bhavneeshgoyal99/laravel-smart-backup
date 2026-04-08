@@ -186,6 +186,7 @@
                 <th>Format</th>
                 <th>Started</th>
                 <th>Files</th>
+                <th>Restore</th>
                 <th>Action</th>
             </tr>
             </thead>
@@ -215,6 +216,16 @@
                         @endif
                     </td>
                     <td>
+                        @if (count($backup['tables']) === 0)
+                            <span class="muted">n/a</span>
+                        @else
+                            <form method="POST" action="{{ route($routePrefix . 'backups.restore-run', $backup['id']) }}" class="inline" onsubmit="return confirm('Restore all tracked files from this backup run into the configured database?');">
+                                @csrf
+                                <button type="submit" class="button">Restore</button>
+                            </form>
+                        @endif
+                    </td>
+                    <td>
                         <form method="POST" action="{{ route($routePrefix . 'backups.destroy', $backup['id']) }}" class="inline" onsubmit="return confirm('Delete this backup and its tracked files?');">
                             @csrf
                             @method('DELETE')
@@ -224,7 +235,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="muted">No backup runs have been recorded yet.</td>
+                    <td colspan="8" class="muted">No backup runs have been recorded yet.</td>
                 </tr>
             @endforelse
             </tbody>
