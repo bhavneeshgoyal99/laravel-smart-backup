@@ -121,6 +121,26 @@
     };
 
     $countLeaves($settings);
+
+    $tabs = [];
+
+    if (count($generalSettings) > 0) {
+        $tabs['general'] = [
+            'label' => 'General',
+            'fields' => $generalSettings,
+            'prefix' => '',
+        ];
+    }
+
+    foreach ($groupedSettings as $group => $values) {
+        $tabs[$group] = [
+            'label' => $formatLabel($group),
+            'fields' => $values,
+            'prefix' => $group,
+        ];
+    }
+
+    $initialTab = array_key_first($tabs) ?? 'general';
 @endphp
 
 @section('content')
@@ -132,6 +152,55 @@
 
         .settings-grid {
             align-items: start;
+        }
+
+        .settings-shell {
+            display: grid;
+            gap: 22px;
+        }
+
+        .settings-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        .settings-tab {
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--muted);
+            padding: 10px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            font: inherit;
+            transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+        }
+
+        .settings-tab.active {
+            background: var(--ink);
+            color: #fff;
+            border-color: var(--ink);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .tab-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .tab-panel-header p {
+            margin: 0;
         }
 
         .settings-panel {
@@ -198,6 +267,11 @@
         }
 
         @media (max-width: 768px) {
+            .tab-panel-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
             .settings-panel {
                 grid-template-columns: 1fr;
             }
@@ -210,12 +284,12 @@
 
     <form method="POST" action="{{ route($routePrefix . 'settings.update') }}" class="settings-form">
         @csrf
+        <input type="hidden" name="active_tab" value="{{ $initialTab }}" data-active-tab-input>
 
         <div class="hero">
             <div class="card">
                 <p class="muted">Package Settings</p>
                 <h1>Manage the full backup configuration.</h1>
-                {{-- <p class="muted">This form now follows the same config tree as the old read-only view, so every visible setting can be edited and stored in the database.</p> --}}
             </div>
 
             <div class="card">
@@ -237,42 +311,50 @@
             </div>
         </div>
 
-        @if (count($generalSettings) > 0)
-            <div class="card">
-                <h2>General</h2>
-                <div class="settings-panel">
-                    @include('smart-backup::partials.settings-fields', [
-                        'fields' => $generalSettings,
-                        'prefix' => '',
-                        'isLeafArray' => $isLeafArray,
-                        'formatLabel' => $formatLabel,
-                        'buildFieldName' => $buildFieldName,
-                        'fieldOptions' => $fieldOptions,
-                        'fieldHelp' => $fieldHelp,
-                        'fieldLabels' => $fieldLabels,
-                    ])
-                </div>
+        <div class="card settings-shell">
+            <div class="settings-tabs" role="tablist" aria-label="Settings Sections">
+                @foreach ($tabs as $tabKey => $tab)
+                    <button
+                        type="button"
+                        class="settings-tab {{ $tabKey === $initialTab ? 'active' : '' }}"
+                        data-tab-target="{{ $tabKey }}"
+                        role="tab"
+                        aria-selected="{{ $tabKey === $initialTab ? 'true' : 'false' }}"
+                    >
+                        {{ $tab['label'] }}
+                    </button>
+                @endforeach
             </div>
-        @endif
 
-        <div class="settings-grid">
-            @foreach ($groupedSettings as $group => $values)
-                <div class="card">
-                    <h2>{{ $formatLabel($group) }}</h2>
-                    <div class="settings-panel">
-                        @include('smart-backup::partials.settings-fields', [
-                            'fields' => $values,
-                            'prefix' => $group,
-                            'isLeafArray' => $isLeafArray,
-                            'formatLabel' => $formatLabel,
-                            'buildFieldName' => $buildFieldName,
-                            'fieldOptions' => $fieldOptions,
-                            'fieldHelp' => $fieldHelp,
-                            'fieldLabels' => $fieldLabels,
-                        ])
-                    </div>
-                </div>
-            @endforeach
+            <div class="settings-grid">
+                @foreach ($tabs as $tabKey => $tab)
+                    <section
+                        class="tab-panel {{ $tabKey === $initialTab ? 'active' : '' }}"
+                        data-tab-panel="{{ $tabKey }}"
+                        role="tabpanel"
+                    >
+                        <div class="tab-panel-header">
+                            <div>
+                                <h2>{{ $tab['label'] }}</h2>
+                                <p class="muted">Update the {{ strtolower($tab['label']) }} settings and save when you are ready.</p>
+                            </div>
+                        </div>
+
+                        <div class="settings-panel">
+                            @include('smart-backup::partials.settings-fields', [
+                                'fields' => $tab['fields'],
+                                'prefix' => $tab['prefix'],
+                                'isLeafArray' => $isLeafArray,
+                                'formatLabel' => $formatLabel,
+                                'buildFieldName' => $buildFieldName,
+                                'fieldOptions' => $fieldOptions,
+                                'fieldHelp' => $fieldHelp,
+                                'fieldLabels' => $fieldLabels,
+                            ])
+                        </div>
+                    </section>
+                @endforeach
+            </div>
         </div>
 
         <div class="card">
@@ -280,4 +362,49 @@
             <button type="submit" class="button primary">Save Settings</button>
         </div>
     </form>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const tabs = Array.from(document.querySelectorAll('[data-tab-target]'));
+            const panels = Array.from(document.querySelectorAll('[data-tab-panel]'));
+            const activeTabInput = document.querySelector('[data-active-tab-input]');
+            const storageKey = 'smart-backup-settings-active-tab';
+
+            if (tabs.length === 0 || panels.length === 0) {
+                return;
+            }
+
+            const activateTab = function (target) {
+                tabs.forEach(function (tab) {
+                    const isActive = tab.getAttribute('data-tab-target') === target;
+                    tab.classList.toggle('active', isActive);
+                    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                });
+
+                panels.forEach(function (panel) {
+                    panel.classList.toggle('active', panel.getAttribute('data-tab-panel') === target);
+                });
+
+                 if (activeTabInput) {
+                    activeTabInput.value = target;
+                }
+
+                window.localStorage.setItem(storageKey, target);
+            };
+
+            tabs.forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    activateTab(tab.getAttribute('data-tab-target'));
+                });
+            });
+
+            const savedTab = window.localStorage.getItem(storageKey);
+            const defaultTab = @json($initialTab);
+            const targetTab = tabs.some(function (tab) {
+                return tab.getAttribute('data-tab-target') === savedTab;
+            }) ? savedTab : defaultTab;
+
+            activateTab(targetTab);
+        });
+    </script>
 @endsection
