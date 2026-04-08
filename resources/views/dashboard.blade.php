@@ -7,6 +7,75 @@
 @endphp
 
 @section('content')
+    <style>
+        .files-button {
+            min-width: 92px;
+        }
+
+        .files-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(18, 32, 47, 0.44);
+            z-index: 40;
+        }
+
+        .files-modal.open {
+            display: flex;
+        }
+
+        .files-modal-card {
+            width: min(760px, 100%);
+            max-height: min(80vh, 720px);
+            overflow: auto;
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(216, 225, 232, 0.95);
+            border-radius: 24px;
+            box-shadow: 0 28px 60px rgba(18, 32, 47, 0.18);
+            padding: 22px;
+        }
+
+        .files-modal-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .files-modal-head h3,
+        .files-modal-head p {
+            margin: 0;
+        }
+
+        .files-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .files-item {
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: #f8fafb;
+        }
+
+        .files-item strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .files-item code {
+            display: block;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 0.88rem;
+        }
+    </style>
+
     <div class="hero">
         <div class="card">
             <p class="muted">Backup Operations</p>
@@ -136,9 +205,13 @@
                         @if (count($backup['tables']) === 0)
                             <span class="muted">No files tracked</span>
                         @else
-                            @foreach ($backup['tables'] as $table)
-                                <div>{{ $table['table_name'] }}<br><span class="muted">{{ $table['file_path'] }}</span></div>
-                            @endforeach
+                            <button
+                                type="button"
+                                class="button files-button"
+                                data-files-open="backup-files-{{ $backup['id'] }}"
+                            >
+                                View ({{ count($backup['tables']) }})
+                            </button>
                         @endif
                     </td>
                     <td>
@@ -157,4 +230,76 @@
             </tbody>
         </table>
     </div>
+
+    @foreach ($backups as $backup)
+        @if (count($backup['tables']) > 0)
+            <div class="files-modal" id="backup-files-{{ $backup['id'] }}" aria-hidden="true">
+                <div class="files-modal-card">
+                    <div class="files-modal-head">
+                        <div>
+                            <p class="muted">Backup Files</p>
+                            <h3>Run #{{ $backup['id'] }}</h3>
+                        </div>
+                        <button type="button" class="button" data-files-close>Close</button>
+                    </div>
+
+                    <div class="files-list">
+                        @foreach ($backup['tables'] as $table)
+                            <div class="files-item">
+                                <strong>{{ $table['table_name'] }}</strong>
+                                <code>{{ $table['file_path'] }}</code>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        @endif
+    @endforeach
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const openButtons = Array.from(document.querySelectorAll('[data-files-open]'));
+            const modals = Array.from(document.querySelectorAll('.files-modal'));
+
+            const closeModal = function (modal) {
+                modal.classList.remove('open');
+                modal.setAttribute('aria-hidden', 'true');
+            };
+
+            const openModal = function (modal) {
+                modal.classList.add('open');
+                modal.setAttribute('aria-hidden', 'false');
+            };
+
+            openButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    const modal = document.getElementById(button.getAttribute('data-files-open'));
+
+                    if (modal) {
+                        openModal(modal);
+                    }
+                });
+            });
+
+            modals.forEach(function (modal) {
+                modal.addEventListener('click', function (event) {
+                    if (event.target === modal || event.target.hasAttribute('data-files-close')) {
+                        closeModal(modal);
+                    }
+                });
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key !== 'Escape') {
+                    return;
+                }
+
+                modals.forEach(function (modal) {
+                    if (modal.classList.contains('open')) {
+                        closeModal(modal);
+                    }
+                });
+            });
+        });
+    </script>
 @endsection
