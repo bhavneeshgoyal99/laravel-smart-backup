@@ -290,11 +290,9 @@
         @csrf
         <input type="hidden" name="active_tab" value="{{ $initialTab }}" data-active-tab-input>
 
-        <div class="hero settings-hero">
-            <div class="card">
-                <p class="muted">Package Settings</p>
-                <h1>Manage the full backup configuration.</h1>
-            </div>
+        <div class="card">
+            <p class="muted">Package Settings</p>
+            <h1>Manage the full backup configuration.</h1>
         </div>
 
         <div class="card settings-shell">
