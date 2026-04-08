@@ -9,13 +9,15 @@ use InvalidArgumentException;
 
 class SchedulerService
 {
-    public function __construct(protected Config $config)
-    {
+    public function __construct(
+        protected Config $config,
+        protected SettingsService $settings
+    ) {
     }
 
     public function register(Schedule $schedule): void
     {
-        if (! $this->config->get('backup.schedule.enabled', false)) {
+        if (! (bool) $this->settings->get('schedule.enabled', false)) {
             return;
         }
 
@@ -24,7 +26,7 @@ class SchedulerService
         $this->applyFrequency($event);
         $this->applyTimezone($event);
 
-        if ($this->config->get('backup.schedule.without_overlapping', true)) {
+        if ((bool) $this->settings->get('schedule.without_overlapping', true)) {
             $event->withoutOverlapping();
         }
     }
@@ -34,7 +36,7 @@ class SchedulerService
         $options = [];
 
         foreach (['mode', 'format', 'driver'] as $option) {
-            $value = $this->config->get("backup.schedule.{$option}");
+            $value = $this->settings->get("schedule.{$option}");
 
             if (is_string($value) && $value !== '') {
                 $options["--{$option}"] = $value;
@@ -42,7 +44,7 @@ class SchedulerService
         }
 
         $tables = array_values(array_filter(
-            (array) $this->config->get('backup.schedule.tables', []),
+            (array) $this->settings->get('schedule.tables', []),
             static fn ($table) => is_string($table) && $table !== ''
         ));
 
@@ -55,17 +57,17 @@ class SchedulerService
 
     protected function applyFrequency(Event $event): void
     {
-        $frequency = (string) $this->config->get('backup.schedule.frequency', 'daily');
-        $time = $this->normalizeTime((string) $this->config->get('backup.schedule.time', '02:00'));
+        $frequency = (string) $this->settings->get('schedule.frequency', 'daily');
+        $time = $this->normalizeTime((string) $this->settings->get('schedule.time', '02:00'));
 
         match ($frequency) {
             'hourly' => $event->hourlyAt($this->extractMinute($time)),
             'weekly' => $event->weeklyOn(
-                (int) $this->config->get('backup.schedule.day_of_week', 0),
+                (int) $this->settings->get('schedule.day_of_week', 0),
                 $time
             ),
             'monthly' => $event->monthlyOn(
-                (int) $this->config->get('backup.schedule.day_of_month', 1),
+                (int) $this->settings->get('schedule.day_of_month', 1),
                 $time
             ),
             'daily' => $event->dailyAt($time),
@@ -78,7 +80,7 @@ class SchedulerService
 
     protected function applyTimezone(Event $event): void
     {
-        $timezone = $this->config->get('backup.schedule.timezone');
+        $timezone = $this->settings->get('schedule.timezone');
 
         if (is_string($timezone) && $timezone !== '') {
             $event->timezone($timezone);

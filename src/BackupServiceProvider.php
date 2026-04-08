@@ -90,7 +90,10 @@ class BackupServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(SchedulerService::class, function ($app) {
-            return new SchedulerService($app['config']);
+            return new SchedulerService(
+                $app['config'],
+                $app->make(SettingsService::class)
+            );
         });
     }
 
