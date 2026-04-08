@@ -89,6 +89,7 @@ class SettingsService
         $defaults = (array) $this->config->get('backup', []);
 
         unset($defaults['drivers'], $defaults['ui']);
+        unset($defaults['schedule']['driver']);
 
         return $defaults;
     }

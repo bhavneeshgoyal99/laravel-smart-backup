@@ -13,6 +13,7 @@
         $selected = old($path, $value);
         $options = $fieldOptions[$path] ?? null;
         $arrayValue = is_array($selected) ? $selected : (is_array($value) ? $value : []);
+        $fieldType = $fieldTypes[$normalizedPath] ?? null;
     @endphp
 
     @if (is_array($value) && ! $isLeafArray($value))
@@ -28,6 +29,7 @@
                     'fieldOptions' => $fieldOptions,
                     'fieldHelp' => $fieldHelp,
                     'fieldLabels' => $fieldLabels,
+                    'fieldTypes' => $fieldTypes,
                 ])
             </div>
         </div>
@@ -41,7 +43,31 @@
                 <span class="field-note">Enter one value per line.</span>
             @endif
 
-            @if (is_bool($value))
+            @if ($fieldType === 'boolean_radio')
+                <div class="boolean-choices">
+                    <label class="boolean-choice" for="{{ $id }}-yes">
+                        <input
+                            id="{{ $id }}-yes"
+                            type="radio"
+                            name="{{ $name }}"
+                            value="1"
+                            {{ (string) old($path, $value ? '1' : '0') === '1' ? 'checked' : '' }}
+                        >
+                        <span>Yes</span>
+                    </label>
+
+                    <label class="boolean-choice" for="{{ $id }}-no">
+                        <input
+                            id="{{ $id }}-no"
+                            type="radio"
+                            name="{{ $name }}"
+                            value="0"
+                            {{ (string) old($path, $value ? '1' : '0') === '0' ? 'checked' : '' }}
+                        >
+                        <span>No</span>
+                    </label>
+                </div>
+            @elseif (is_bool($value))
                 <input type="hidden" name="{{ $name }}" value="0">
                 <div class="checkbox-field">
                     <input

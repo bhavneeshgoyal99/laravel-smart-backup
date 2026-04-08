@@ -98,6 +98,13 @@
         'restore.disable_foreign_key_constraints' => 'Temporarily Disable Foreign Key Constraints During Restore',
     ];
 
+    $fieldTypes = [
+        'schedule.enabled' => 'boolean_radio',
+        'schedule.without_overlapping' => 'boolean_radio',
+        'restore.disable_foreign_key_constraints' => 'boolean_radio',
+        'maintenance.enabled' => 'boolean_radio',
+    ];
+
     $generalSettings = [];
     $groupedSettings = [];
 
@@ -154,6 +161,23 @@
 
         .settings-grid {
             align-items: start;
+        }
+
+        .settings-save {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .settings-save h2,
+        .settings-save p {
+            margin: 0;
+        }
+
+        .settings-save-copy {
+            display: grid;
+            gap: 6px;
         }
 
         .settings-shell {
@@ -249,6 +273,26 @@
             width: auto;
         }
 
+        .boolean-choices {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            min-height: 46px;
+            align-items: center;
+        }
+
+        .boolean-choice {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.94rem;
+        }
+
+        .boolean-choice input {
+            width: auto;
+            margin: 0;
+        }
+
         .field-note,
         .error-text {
             font-size: 0.85rem;
@@ -273,6 +317,11 @@
         }
 
         @media (max-width: 768px) {
+            .settings-save {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
             .tab-panel-header {
                 flex-direction: column;
                 align-items: flex-start;
@@ -336,6 +385,7 @@
                                 'fieldOptions' => $fieldOptions,
                                 'fieldHelp' => $fieldHelp,
                                 'fieldLabels' => $fieldLabels,
+                                'fieldTypes' => $fieldTypes,
                             ])
                         </div>
                     </section>
@@ -344,8 +394,13 @@
         </div>
 
         <div class="card">
-            <h2>Save Changes</h2>
-            <button type="submit" class="button primary">Save Settings</button>
+            <div class="settings-save">
+                <div class="settings-save-copy">
+                    <h2>Save Changes</h2>
+                    <p class="muted">Save the currently edited configuration to the database.</p>
+                </div>
+                <button type="submit" class="button primary">Save Settings</button>
+            </div>
         </div>
     </form>
 
