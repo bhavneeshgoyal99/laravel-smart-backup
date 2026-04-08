@@ -101,44 +101,83 @@ class RestoreService
         $statements = 0;
         $restoredTables = [];
         $buffer = '';
+        $inSingleQuote = false;
 
         while (($line = fgets($stream)) !== false) {
-            $buffer .= $line;
+            $length = strlen($line);
 
-            if (! str_ends_with(rtrim($line), ';')) {
-                continue;
+            for ($index = 0; $index < $length; $index++) {
+                $character = $line[$index];
+                $buffer .= $character;
+
+                if ($character === "'") {
+                    $nextCharacter = $index + 1 < $length ? $line[$index + 1] : null;
+
+                    // SQL string escaping in dumps uses doubled single quotes.
+                    if ($inSingleQuote && $nextCharacter === "'") {
+                        $buffer .= $nextCharacter;
+                        $index++;
+                        continue;
+                    }
+
+                    $inSingleQuote = ! $inSingleQuote;
+                    continue;
+                }
+
+                if ($character !== ';' || $inSingleQuote) {
+                    continue;
+                }
+
+                $statement = trim($buffer);
+                $buffer = '';
+
+                if ($statement === '') {
+                    continue;
+                }
+
+                $statementTable = $this->extractTableFromSqlStatement($statement);
+
+                if ($table !== null && $statementTable !== null && $statementTable !== $table) {
+                    continue;
+                }
+
+                $connection->unprepared($statement);
+                $statements++;
+
+                if (Str::startsWith(Str::upper($statement), 'INSERT INTO')) {
+                    $rows++;
+                }
+
+                if ($statementTable !== null) {
+                    $restoredTables[$statementTable] = true;
+                }
+
+                if (is_callable($progressCallback)) {
+                    $progressCallback('statement.restored', [
+                        'table' => $statementTable,
+                        'statements' => $statements,
+                        'rows' => $rows,
+                    ]);
+                }
             }
+        }
 
-            $statement = trim($buffer);
-            $buffer = '';
+        $statement = trim($buffer);
 
-            if ($statement === '') {
-                continue;
-            }
-
+        if ($statement !== '') {
             $statementTable = $this->extractTableFromSqlStatement($statement);
 
-            if ($table !== null && $statementTable !== null && $statementTable !== $table) {
-                continue;
-            }
+            if ($table === null || $statementTable === null || $statementTable === $table) {
+                $connection->unprepared($statement);
+                $statements++;
 
-            $connection->unprepared($statement);
-            $statements++;
+                if (Str::startsWith(Str::upper($statement), 'INSERT INTO')) {
+                    $rows++;
+                }
 
-            if (Str::startsWith(Str::upper($statement), 'INSERT INTO')) {
-                $rows++;
-            }
-
-            if ($statementTable !== null) {
-                $restoredTables[$statementTable] = true;
-            }
-
-            if (is_callable($progressCallback)) {
-                $progressCallback('statement.restored', [
-                    'table' => $statementTable,
-                    'statements' => $statements,
-                    'rows' => $rows,
-                ]);
+                if ($statementTable !== null) {
+                    $restoredTables[$statementTable] = true;
+                }
             }
         }
 
