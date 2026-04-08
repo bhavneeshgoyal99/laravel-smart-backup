@@ -159,6 +159,10 @@
             gap: 22px;
         }
 
+        .settings-hero {
+            grid-template-columns: 1fr;
+        }
+
         .settings-tabs {
             display: flex;
             flex-wrap: wrap;
@@ -286,28 +290,10 @@
         @csrf
         <input type="hidden" name="active_tab" value="{{ $initialTab }}" data-active-tab-input>
 
-        <div class="hero">
+        <div class="hero settings-hero">
             <div class="card">
                 <p class="muted">Package Settings</p>
                 <h1>Manage the full backup configuration.</h1>
-            </div>
-
-            <div class="card">
-                <h2>Coverage</h2>
-                <div class="meta-list">
-                    <div class="meta-row">
-                        <span class="muted">Top-level groups</span>
-                        <strong>{{ count($groupedSettings) + (count($generalSettings) > 0 ? 1 : 0) }}</strong>
-                    </div>
-                    <div class="meta-row">
-                        <span class="muted">Config fields</span>
-                        <strong>{{ $leafCount }}</strong>
-                    </div>
-                    <div class="meta-row">
-                        <span class="muted">Storage mode</span>
-                        <strong>Database-backed</strong>
-                    </div>
-                </div>
             </div>
         </div>
 
