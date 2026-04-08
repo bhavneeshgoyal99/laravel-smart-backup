@@ -12,6 +12,10 @@
             min-width: 92px;
         }
 
+        .restore-button {
+            min-width: 92px;
+        }
+
         .files-modal {
             position: fixed;
             inset: 0;
@@ -73,6 +77,17 @@
             white-space: pre-wrap;
             word-break: break-word;
             font-size: 0.88rem;
+        }
+
+        .modal-note {
+            margin: 0 0 16px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 18px;
         }
     </style>
 
@@ -216,13 +231,21 @@
                         @endif
                     </td>
                     <td>
-                        @if (count($backup['tables']) === 0)
+                        @if ($backup['status'] === 'failed')
+                            <span class="muted">Unavailable</span>
+                        @elseif (count($backup['tables']) === 0)
                             <span class="muted">n/a</span>
                         @else
-                            <form method="POST" action="{{ route($routePrefix . 'backups.restore-run', $backup['id']) }}" class="inline" onsubmit="return confirm('Restore all tracked files from this backup run into the configured database?');">
-                                @csrf
-                                <button type="submit" class="button">Restore</button>
-                            </form>
+                            <button
+                                type="button"
+                                class="button restore-button"
+                                data-restore-open
+                                data-restore-action="{{ route($routePrefix . 'backups.restore-run', $backup['id']) }}"
+                                data-restore-run="#{{ $backup['id'] }}"
+                                data-restore-count="{{ count($backup['tables']) }}"
+                            >
+                                Restore
+                            </button>
                         @endif
                     </td>
                     <td>
@@ -267,10 +290,45 @@
         @endif
     @endforeach
 
+    <div class="files-modal" id="backup-restore-modal" aria-hidden="true">
+        <div class="files-modal-card">
+            <div class="files-modal-head">
+                <div>
+                    <p class="muted">Restore Backup</p>
+                    <h3 data-restore-title>Restore Run</h3>
+                </div>
+                <button type="button" class="button" data-restore-close>Close</button>
+            </div>
+
+            <p class="muted modal-note" data-restore-description></p>
+
+            <form method="POST" action="" class="stack" data-restore-form>
+                @csrf
+
+                @if (!empty($config['restore_password_required']))
+                    <label>
+                        Restore Password
+                        <input type="password" name="password" placeholder="Enter restore password" required>
+                    </label>
+                @endif
+
+                <div class="modal-actions">
+                    <button type="button" class="button" data-restore-close>Cancel</button>
+                    <button type="submit" class="button primary">Confirm Restore</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const openButtons = Array.from(document.querySelectorAll('[data-files-open]'));
             const modals = Array.from(document.querySelectorAll('.files-modal'));
+            const restoreButtons = Array.from(document.querySelectorAll('[data-restore-open]'));
+            const restoreModal = document.getElementById('backup-restore-modal');
+            const restoreForm = document.querySelector('[data-restore-form]');
+            const restoreTitle = document.querySelector('[data-restore-title]');
+            const restoreDescription = document.querySelector('[data-restore-description]');
 
             const closeModal = function (modal) {
                 modal.classList.remove('open');
@@ -299,6 +357,27 @@
                     }
                 });
             });
+
+            restoreButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    if (!restoreModal || !restoreForm || !restoreTitle || !restoreDescription) {
+                        return;
+                    }
+
+                    restoreForm.setAttribute('action', button.getAttribute('data-restore-action'));
+                    restoreTitle.textContent = 'Restore Run ' + button.getAttribute('data-restore-run');
+                    restoreDescription.textContent = 'This will restore ' + button.getAttribute('data-restore-count') + ' tracked file(s) back into the configured database.';
+                    openModal(restoreModal);
+                });
+            });
+
+            if (restoreModal) {
+                restoreModal.addEventListener('click', function (event) {
+                    if (event.target === restoreModal || event.target.hasAttribute('data-restore-close')) {
+                        closeModal(restoreModal);
+                    }
+                });
+            }
 
             document.addEventListener('keydown', function (event) {
                 if (event.key !== 'Escape') {

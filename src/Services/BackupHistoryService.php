@@ -123,6 +123,7 @@ class BackupHistoryService
             'chunk_size' => $this->settings->get('chunk_size'),
             'schedule' => $this->settings->get('schedule'),
             'maintenance' => $this->settings->get('maintenance'),
+            'restore_password_required' => filled($this->settings->get('restore.password')),
             'ui' => $this->settings->get('ui'),
         ];
     }

@@ -94,6 +94,7 @@
     $fieldLabels = [
         'tables.include' => 'Include',
         'tables.exclude' => 'Exclude',
+        'restore.disable_foreign_key_constraints' => 'Temporarily Disable Foreign Key Constraints During Restore',
     ];
 
     $generalSettings = [];
