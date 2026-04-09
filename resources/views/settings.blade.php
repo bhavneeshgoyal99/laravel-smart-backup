@@ -93,7 +93,7 @@
         'schedule.time' => 'Run time used for daily, weekly, and monthly schedules.',
         'schedule.day_of_week' => 'Used only when the frequency is set to weekly. Sunday = 0.',
         'schedule.day_of_month' => 'Used only when the frequency is set to monthly.',
-        'schedule.tables' => 'Optional table subset for scheduled backups. Use one table name per line.',
+        'schedule.tables' => 'Use one table name per line. If left empty, scheduled backups use the included tables from Settings.',
     ];
 
     $fieldLabels = [
@@ -188,6 +188,12 @@
     $tableInclude = array_values(array_unique(array_map('strval', (array) ($settings['tables']['include'] ?? []))));
     $tableExclude = array_values(array_unique(array_map('strval', (array) ($settings['tables']['exclude'] ?? []))));
     $availableTables = array_values(array_unique(array_map('strval', $availableTables ?? [])));
+    $scheduleTables = array_values(array_filter(array_map('strval', (array) ($settings['schedule']['tables'] ?? []))));
+
+    if ($scheduleTables === []) {
+        $scheduleTables = $tableInclude;
+        $settings['schedule']['tables'] = $scheduleTables;
+    }
 
     $tableIncludedOptions = $tableInclude !== []
         ? array_values(array_unique(array_diff($tableInclude, $tableExclude)))
