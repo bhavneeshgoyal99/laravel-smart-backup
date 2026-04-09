@@ -113,6 +113,7 @@ return [
     'schedule' => [
         'enabled' => (bool) env('SMART_BACKUP_SCHEDULE_ENABLED', false),
         'frequency' => env('SMART_BACKUP_SCHEDULE_FREQUENCY', 'daily'),
+        'hourly_minute' => (int) env('SMART_BACKUP_SCHEDULE_HOURLY_MINUTE', 0),
         'time' => env('SMART_BACKUP_SCHEDULE_TIME', '02:00'),
         'day_of_week' => (int) env('SMART_BACKUP_SCHEDULE_DAY_OF_WEEK', 0),
         'day_of_month' => (int) env('SMART_BACKUP_SCHEDULE_DAY_OF_MONTH', 1),

@@ -14,6 +14,10 @@
         $options = $fieldOptions[$path] ?? null;
         $arrayValue = is_array($selected) ? $selected : (is_array($value) ? $value : []);
         $fieldType = $fieldTypes[$normalizedPath] ?? null;
+        $visibilityRules = $fieldVisibilityRules[$normalizedPath] ?? null;
+        $visibilityAttribute = $visibilityRules !== null
+            ? json_encode($visibilityRules, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT)
+            : null;
         $dateValue = null;
 
         if ($fieldType === 'date' && $selected !== null && $selected !== '') {
@@ -39,11 +43,18 @@
                     'fieldHelp' => $fieldHelp,
                     'fieldLabels' => $fieldLabels,
                     'fieldTypes' => $fieldTypes,
+                    'fieldVisibilityRules' => $fieldVisibilityRules,
                 ])
             </div>
         </div>
     @else
-        <div for="{{ $id }}">
+        <div
+            class="settings-field"
+            data-field-path="{{ $normalizedPath }}"
+            @if ($visibilityAttribute !== null)
+                data-visibility-rules="{{ $visibilityAttribute }}"
+            @endif
+        >
             {{ $label }}
 
             @if (isset($fieldHelp[$path]))
@@ -60,6 +71,7 @@
                             type="radio"
                             name="{{ $name }}"
                             value="1"
+                            data-setting-path="{{ $normalizedPath }}"
                             {{ (string) old($path, $value ? '1' : '0') === '1' ? 'checked' : '' }}
                         >
                         <span>Yes</span>
@@ -71,6 +83,7 @@
                             type="radio"
                             name="{{ $name }}"
                             value="0"
+                            data-setting-path="{{ $normalizedPath }}"
                             {{ (string) old($path, $value ? '1' : '0') === '0' ? 'checked' : '' }}
                         >
                         <span>No</span>
@@ -84,12 +97,13 @@
                         type="checkbox"
                         name="{{ $name }}"
                         value="1"
+                        data-setting-path="{{ $normalizedPath }}"
                         {{ old($path, $value) ? 'checked' : '' }}
                     >
                     <span class="muted">{{ old($path, $value) ? 'Enabled' : 'Disabled' }}</span>
                 </div>
             @elseif ($options !== null)
-                <select id="{{ $id }}" name="{{ $name }}">
+                <select id="{{ $id }}" name="{{ $name }}" data-setting-path="{{ $normalizedPath }}">
                     @foreach ($options as $optionValue => $optionLabel)
                         <option value="{{ $optionValue }}" {{ (string) $selected === (string) $optionValue ? 'selected' : '' }}>
                             {{ $optionLabel }}
@@ -97,17 +111,21 @@
                     @endforeach
                 </select>
             @elseif ($fieldType === 'date')
-                <input id="{{ $id }}" type="date" name="{{ $name }}" value="{{ $dateValue }}">
+                <input id="{{ $id }}" type="date" name="{{ $name }}" value="{{ $dateValue }}" data-setting-path="{{ $normalizedPath }}">
+            @elseif ($fieldType === 'time')
+                <input id="{{ $id }}" type="time" name="{{ $name }}" value="{{ $selected ?? '' }}" data-setting-path="{{ $normalizedPath }}">
             @elseif ($fieldType === 'decimal_number')
-                <input id="{{ $id }}" type="number" step="any" name="{{ $name }}" value="{{ $selected }}">
+                <input id="{{ $id }}" type="number" step="any" name="{{ $name }}" value="{{ $selected }}" data-setting-path="{{ $normalizedPath }}">
+            @elseif ($fieldType === 'number_0_59')
+                <input id="{{ $id }}" type="number" min="0" max="59" name="{{ $name }}" value="{{ $selected }}" data-setting-path="{{ $normalizedPath }}">
             @elseif (is_array($value))
-                <textarea id="{{ $id }}" name="{{ $name }}" rows="{{ max(3, count($arrayValue) + 1) }}">{{ implode(PHP_EOL, $arrayValue) }}</textarea>
+                <textarea id="{{ $id }}" name="{{ $name }}" rows="{{ max(3, count($arrayValue) + 1) }}" data-setting-path="{{ $normalizedPath }}">{{ implode(PHP_EOL, $arrayValue) }}</textarea>
             @elseif (is_int($value))
-                <input id="{{ $id }}" type="number" name="{{ $name }}" value="{{ $selected }}">
+                <input id="{{ $id }}" type="number" name="{{ $name }}" value="{{ $selected }}" data-setting-path="{{ $normalizedPath }}">
             @elseif (is_float($value))
-                <input id="{{ $id }}" type="number" step="any" name="{{ $name }}" value="{{ $selected }}">
+                <input id="{{ $id }}" type="number" step="any" name="{{ $name }}" value="{{ $selected }}" data-setting-path="{{ $normalizedPath }}">
             @else
-                <input id="{{ $id }}" type="text" name="{{ $name }}" value="{{ $selected ?? '' }}">
+                <input id="{{ $id }}" type="text" name="{{ $name }}" value="{{ $selected ?? '' }}" data-setting-path="{{ $normalizedPath }}">
             @endif
 
             @error($path)

@@ -217,6 +217,20 @@ class BackupController extends Controller
         $settings = $this->settings->all();
         $availableTables = [];
 
+        $settings['schedule'] = array_merge([
+            'enabled' => false,
+            'frequency' => 'daily',
+            'hourly_minute' => 0,
+            'time' => '02:00',
+            'day_of_week' => 0,
+            'day_of_month' => 1,
+            'timezone' => config('app.timezone'),
+            'mode' => null,
+            'format' => null,
+            'tables' => [],
+            'without_overlapping' => true,
+        ], (array) ($settings['schedule'] ?? []));
+
         if (isset($settings['resilience']['retry_sleep_microseconds'])) {
             $seconds = ((int) $settings['resilience']['retry_sleep_microseconds']) / 1000000;
             $settings['resilience']['retry_sleep_microseconds'] = fmod($seconds, 1.0) === 0.0
@@ -238,6 +252,20 @@ class BackupController extends Controller
 
     public function updateSettings(Request $request): RedirectResponse
     {
+        $request->validate([
+            'schedule.enabled' => ['nullable', 'boolean'],
+            'schedule.frequency' => ['nullable', 'in:hourly,daily,weekly,monthly'],
+            'schedule.hourly_minute' => ['nullable', 'integer', 'between:0,59'],
+            'schedule.time' => ['nullable', 'date_format:H:i'],
+            'schedule.day_of_week' => ['nullable', 'integer', 'between:0,6'],
+            'schedule.day_of_month' => ['nullable', 'integer', 'between:1,31'],
+            'schedule.timezone' => ['nullable', 'timezone'],
+            'schedule.mode' => ['nullable', 'in:full,incremental'],
+            'schedule.format' => ['nullable', 'in:sql,json,csv'],
+            'schedule.tables' => ['nullable'],
+            'schedule.without_overlapping' => ['nullable', 'boolean'],
+        ]);
+
         $settings = $this->settings->sanitizeInput($request->except(['_token', '_method']));
 
         $retrySleepSeconds = $request->input('resilience.retry_sleep_microseconds');
@@ -247,6 +275,10 @@ class BackupController extends Controller
                 0,
                 (int) round(((float) $retrySleepSeconds) * 1000000)
             );
+        }
+
+        if ($request->has('schedule.hourly_minute')) {
+            $settings['schedule.hourly_minute'] = (int) $request->input('schedule.hourly_minute', 0);
         }
 
         foreach ($settings as $key => $value) {

@@ -89,12 +89,18 @@
         'incremental.columns' => 'Enter one column name per line.',
         'tables.include' => 'Leave empty to include every table except those in the exclude list.',
         'tables.exclude' => 'Enter one table name per line.',
+        'schedule.hourly_minute' => 'Minute within the hour for hourly runs. Use a value from 0 to 59.',
+        'schedule.time' => 'Run time used for daily, weekly, and monthly schedules.',
+        'schedule.day_of_week' => 'Used only when the frequency is set to weekly. Sunday = 0.',
+        'schedule.day_of_month' => 'Used only when the frequency is set to monthly.',
         'schedule.tables' => 'Optional table subset for scheduled backups. Use one table name per line.',
     ];
 
     $fieldLabels = [
         'tables.include' => 'Include',
         'tables.exclude' => 'Exclude',
+        'schedule.hourly_minute' => 'Hourly Minute',
+        'schedule.time' => 'Daily Time',
         'restore.disable_foreign_key_constraints' => 'Temporarily Disable Foreign Key Constraints During Restore',
         'resilience.retry_sleep_microseconds' => 'Retry Sleep Seconds',
     ];
@@ -104,8 +110,35 @@
         'schedule.without_overlapping' => 'boolean_radio',
         'restore.disable_foreign_key_constraints' => 'boolean_radio',
         'maintenance.enabled' => 'boolean_radio',
+        'schedule.hourly_minute' => 'number_0_59',
+        'schedule.time' => 'time',
         'resilience.retry_sleep_microseconds' => 'decimal_number',
         'incremental.last_backup_at' => 'date',
+    ];
+
+    $fieldVisibilityRules = [
+        'schedule.frequency' => ['schedule.enabled' => ['1']],
+        'schedule.hourly_minute' => [
+            'schedule.enabled' => ['1'],
+            'schedule.frequency' => ['hourly'],
+        ],
+        'schedule.time' => [
+            'schedule.enabled' => ['1'],
+            'schedule.frequency' => ['daily', 'weekly', 'monthly'],
+        ],
+        'schedule.timezone' => ['schedule.enabled' => ['1']],
+        'schedule.mode' => ['schedule.enabled' => ['1']],
+        'schedule.format' => ['schedule.enabled' => ['1']],
+        'schedule.tables' => ['schedule.enabled' => ['1']],
+        'schedule.without_overlapping' => ['schedule.enabled' => ['1']],
+        'schedule.day_of_week' => [
+            'schedule.enabled' => ['1'],
+            'schedule.frequency' => ['weekly'],
+        ],
+        'schedule.day_of_month' => [
+            'schedule.enabled' => ['1'],
+            'schedule.frequency' => ['monthly'],
+        ],
     ];
 
     $generalSettings = [];
@@ -480,6 +513,7 @@
                                     'fieldHelp' => $fieldHelp,
                                     'fieldLabels' => $fieldLabels,
                                     'fieldTypes' => $fieldTypes,
+                                    'fieldVisibilityRules' => $fieldVisibilityRules,
                                 ])
                             </div>
                         @endif
@@ -510,10 +544,56 @@
             const excludeSelect = document.querySelector('[data-table-exclude]');
             const moveToExcludeButton = document.querySelector('[data-move-to-exclude]');
             const moveToIncludeButton = document.querySelector('[data-move-to-include]');
+            const visibilityFields = Array.from(document.querySelectorAll('[data-visibility-rules]'));
 
             if (tabs.length === 0 || panels.length === 0) {
                 return;
             }
+
+            const readControlValue = function (path) {
+                const control = document.querySelector('[data-setting-path="' + path + '"]');
+
+                if (!control) {
+                    return null;
+                }
+
+                if (control.matches('[type="radio"]')) {
+                    const checked = document.querySelector('[data-setting-path="' + path + '"]:checked');
+
+                    return checked ? checked.value : null;
+                }
+
+                if (control.matches('[type="checkbox"]')) {
+                    return control.checked ? '1' : '0';
+                }
+
+                return control.value;
+            };
+
+            const updateScheduleVisibility = function () {
+                visibilityFields.forEach(function (field) {
+                    const rawRules = field.getAttribute('data-visibility-rules');
+
+                    if (!rawRules) {
+                        field.hidden = false;
+                        return;
+                    }
+
+                    let isVisible = true;
+
+                    try {
+                        const rules = JSON.parse(rawRules);
+
+                        isVisible = Object.keys(rules).every(function (path) {
+                            return rules[path].includes(readControlValue(path));
+                        });
+                    } catch (error) {
+                        isVisible = true;
+                    }
+
+                    field.hidden = !isVisible;
+                });
+            };
 
             const moveSelectedOptions = function (fromSelect, toSelect) {
                 if (!fromSelect || !toSelect) {
@@ -563,6 +643,10 @@
                 });
             });
 
+            document.querySelectorAll('[data-setting-path]').forEach(function (control) {
+                control.addEventListener('change', updateScheduleVisibility);
+            });
+
             if (moveToExcludeButton) {
                 moveToExcludeButton.addEventListener('click', function () {
                     moveSelectedOptions(includeSelect, excludeSelect);
@@ -596,6 +680,7 @@
             }) ? savedTab : defaultTab;
 
             activateTab(targetTab);
+            updateScheduleVisibility();
         });
     </script>
 @endsection

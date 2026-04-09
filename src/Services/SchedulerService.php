@@ -58,19 +58,18 @@ class SchedulerService
     protected function applyFrequency(Event $event): void
     {
         $frequency = (string) $this->settings->get('schedule.frequency', 'daily');
-        $time = $this->normalizeTime((string) $this->settings->get('schedule.time', '02:00'));
 
         match ($frequency) {
-            'hourly' => $event->hourlyAt($this->extractMinute($time)),
+            'hourly' => $event->hourlyAt($this->resolveHourlyMinute()),
             'weekly' => $event->weeklyOn(
                 (int) $this->settings->get('schedule.day_of_week', 0),
-                $time
+                $this->scheduledTime()
             ),
             'monthly' => $event->monthlyOn(
                 (int) $this->settings->get('schedule.day_of_month', 1),
-                $time
+                $this->scheduledTime()
             ),
-            'daily' => $event->dailyAt($time),
+            'daily' => $event->dailyAt($this->scheduledTime()),
             default => throw new InvalidArgumentException(sprintf(
                 'Unsupported backup schedule frequency [%s].',
                 $frequency
@@ -85,6 +84,22 @@ class SchedulerService
         if (is_string($timezone) && $timezone !== '') {
             $event->timezone($timezone);
         }
+    }
+
+    protected function scheduledTime(): string
+    {
+        return $this->normalizeTime((string) $this->settings->get('schedule.time', '02:00'));
+    }
+
+    protected function resolveHourlyMinute(): int
+    {
+        $minute = $this->settings->get('schedule.hourly_minute');
+
+        if (is_numeric($minute)) {
+            return $this->normalizeMinute((int) $minute);
+        }
+
+        return $this->extractMinute($this->scheduledTime());
     }
 
     protected function normalizeTime(string $time): string
@@ -111,6 +126,18 @@ class SchedulerService
     protected function extractMinute(string $time): int
     {
         [, $minute] = array_map('intval', explode(':', $time));
+
+        return $this->normalizeMinute($minute);
+    }
+
+    protected function normalizeMinute(int $minute): int
+    {
+        if ($minute < 0 || $minute > 59) {
+            throw new InvalidArgumentException(sprintf(
+                'Backup schedule minute [%s] must be between 0 and 59.',
+                $minute
+            ));
+        }
 
         return $minute;
     }
