@@ -100,7 +100,7 @@
         'tables.include' => 'Include',
         'tables.exclude' => 'Exclude',
         'schedule.hourly_minute' => 'Hourly Minute',
-        'schedule.time' => 'Daily Time',
+        'schedule.time' => 'Time',
         'restore.disable_foreign_key_constraints' => 'Temporarily Disable Foreign Key Constraints During Restore',
         'resilience.retry_sleep_microseconds' => 'Retry Sleep Seconds',
     ];
