@@ -160,6 +160,11 @@ class BackupService
 
             throw $exception;
         } finally {
+            if ($metadata['status'] === 'completed' && $mode === 'incremental') {
+                $this->settings->set('incremental.last_backup_at', $startedAt->toDateTimeString());
+                $metadata['incremental_last_backup_at_updated_to'] = $startedAt->toDateTimeString();
+            }
+
             $metadata['finished_at'] = now()->toDateTimeString();
             $metadata['table_count'] = count($metadata['tables']);
             $this->metadataService->finalizeRun($runId, $metadata);
@@ -282,7 +287,7 @@ class BackupService
 
     protected function resolveLastBackupAt(string $table): ?string
     {
-        $configured = $this->config->get('backup.incremental.last_backup_at');
+        $configured = $this->settings->get('incremental.last_backup_at');
 
         if (is_string($configured) && trim($configured) !== '') {
             return $configured;
