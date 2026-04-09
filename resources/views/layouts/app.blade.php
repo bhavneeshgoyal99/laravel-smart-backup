@@ -33,9 +33,9 @@
         a { color: inherit; text-decoration: none; }
 
         .shell {
-            max-width: 1180px;
+            max-width: 1680px;
             margin: 0 auto;
-            padding: 32px 20px 64px;
+            padding: 24px 12px 48px;
         }
 
         .nav {
@@ -188,21 +188,27 @@
         .badge {
             display: inline-flex;
             align-items: center;
-            padding: 4px 10px;
+            justify-content: center;
+            min-width: 92px;
+            padding: 7px 14px;
             border-radius: 999px;
+            border: 1px solid transparent;
             background: #eef3f6;
             color: var(--ink);
-            font-size: 0.83rem;
+            font-size: 0.86rem;
+            line-height: 1;
         }
 
         .badge.success {
             background: var(--accent-soft);
             color: var(--accent);
+            border-color: rgba(12, 124, 89, 0.18);
         }
 
         .badge.failed {
             background: var(--danger-soft);
             color: var(--danger);
+            border-color: rgba(185, 56, 47, 0.18);
         }
 
         .meta-list {
@@ -226,6 +232,10 @@
 
             .stats {
                 grid-template-columns: 1fr;
+            }
+
+            .shell {
+                padding: 20px 12px 36px;
             }
         }
     </style>
