@@ -6,6 +6,7 @@ use BhavneeshGoyal\LaravelSmartBackup\Services\BackupManager;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupHistoryService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\RestoreService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\SettingsService;
+use BhavneeshGoyal\LaravelSmartBackup\Services\TableSelectionService;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -21,7 +22,8 @@ class BackupController extends Controller
         protected RestoreService $restoreService,
         protected BackupHistoryService $history,
         protected Config $config,
-        protected SettingsService $settings
+        protected SettingsService $settings,
+        protected TableSelectionService $tableSelection
     ) {
     }
 
@@ -202,6 +204,7 @@ class BackupController extends Controller
     public function settings(): View
     {
         $settings = $this->settings->all();
+        $availableTables = [];
 
         if (isset($settings['resilience']['retry_sleep_microseconds'])) {
             $seconds = ((int) $settings['resilience']['retry_sleep_microseconds']) / 1000000;
@@ -210,8 +213,15 @@ class BackupController extends Controller
                 : $seconds;
         }
 
+        try {
+            $availableTables = $this->tableSelection->all($this->settings->get('connection'));
+        } catch (Throwable) {
+            $availableTables = [];
+        }
+
         return view('smart-backup::settings', [
             'settings' => $settings,
+            'availableTables' => $availableTables,
         ]);
     }
 

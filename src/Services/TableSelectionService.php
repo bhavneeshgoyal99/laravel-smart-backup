@@ -11,6 +11,17 @@ class TableSelectionService
     {
     }
 
+    public function all(?string $connectionName): array
+    {
+        $schema = $this->database->connection($connectionName)->getSchemaBuilder();
+
+        if (! method_exists($schema, 'getTableListing')) {
+            throw new InvalidArgumentException('Automatic table discovery is not supported by the current Laravel/database combination.');
+        }
+
+        return $this->normalize($schema->getTableListing());
+    }
+
     public function resolve(?string $connectionName, array $include = [], array $exclude = []): array
     {
         if ($include !== []) {

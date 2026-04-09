@@ -152,6 +152,22 @@
         ];
     }
 
+    $tableInclude = array_values(array_unique(array_map('strval', (array) ($settings['tables']['include'] ?? []))));
+    $tableExclude = array_values(array_unique(array_map('strval', (array) ($settings['tables']['exclude'] ?? []))));
+    $availableTables = array_values(array_unique(array_map('strval', $availableTables ?? [])));
+
+    $tableIncludedOptions = $tableInclude !== []
+        ? array_values(array_unique(array_diff($tableInclude, $tableExclude)))
+        : array_values(array_unique(array_diff($availableTables, $tableExclude)));
+
+    $tableIncludedOptions = array_values(array_unique(array_merge(
+        $tableIncludedOptions,
+        array_diff($availableTables, $tableExclude, $tableIncludedOptions)
+    )));
+
+    sort($tableIncludedOptions);
+    sort($tableExclude);
+
     $initialTab = array_key_first($tabs) ?? 'general';
 @endphp
 
@@ -265,6 +281,40 @@
             grid-template-columns: 1fr;
         }
 
+        .table-transfer {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            gap: 18px;
+            align-items: center;
+        }
+
+        .table-transfer-column {
+            display: grid;
+            gap: 10px;
+        }
+
+        .table-transfer-column h3,
+        .table-transfer-column p {
+            margin: 0;
+        }
+
+        .table-transfer select {
+            min-height: 320px;
+        }
+
+        .table-transfer-actions {
+            display: grid;
+            gap: 10px;
+        }
+
+        .table-transfer-actions .button {
+            min-width: 52px;
+            min-height: 44px;
+            font-size: 1.55rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
         .checkbox-field {
             display: flex;
             align-items: center;
@@ -338,6 +388,15 @@
                 grid-template-columns: 1fr;
             }
 
+            .table-transfer {
+                grid-template-columns: 1fr;
+            }
+
+            .table-transfer-actions {
+                grid-auto-flow: column;
+                justify-content: start;
+            }
+
             .settings-grid {
                 grid-template-columns: 1fr;
             }
@@ -382,19 +441,48 @@
                             </div>
                         </div>
 
-                        <div class="settings-panel">
-                            @include('smart-backup::partials.settings-fields', [
-                                'fields' => $tab['fields'],
-                                'prefix' => $tab['prefix'],
-                                'isLeafArray' => $isLeafArray,
-                                'formatLabel' => $formatLabel,
-                                'buildFieldName' => $buildFieldName,
-                                'fieldOptions' => $fieldOptions,
-                                'fieldHelp' => $fieldHelp,
-                                'fieldLabels' => $fieldLabels,
-                                'fieldTypes' => $fieldTypes,
-                            ])
-                        </div>
+                        @if ($tabKey === 'tables')
+                            <div class="table-transfer">
+                                <div class="table-transfer-column">
+                                    <h3>Included Tables</h3>
+                                    <p class="muted">These tables will be selected for backup.</p>
+                                    <select multiple data-table-include name="tables[include][]">
+                                        @foreach ($tableIncludedOptions as $tableName)
+                                            <option value="{{ $tableName }}" selected>{{ $tableName }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div class="table-transfer-actions">
+                                    <button type="button" class="button" data-move-to-exclude>&rarr;</button>
+                                    <button type="button" class="button" data-move-to-include>&larr;</button>
+                                </div>
+
+                                <div class="table-transfer-column">
+                                    <h3>Excluded Tables</h3>
+                                    <p class="muted">Move tables here to skip them during backup.</p>
+                                    <select multiple data-table-exclude name="tables[exclude][]">
+                                        @foreach ($tableExclude as $tableName)
+                                            <option value="{{ $tableName }}" selected>{{ $tableName }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        @else
+                            <div class="settings-panel">
+                                @include('smart-backup::partials.settings-fields', [
+                                    'fields' => $tab['fields'],
+                                    'prefix' => $tab['prefix'],
+                                    'isLeafArray' => $isLeafArray,
+                                    'formatLabel' => $formatLabel,
+                                    'buildFieldName' => $buildFieldName,
+                                    'fieldOptions' => $fieldOptions,
+                                    'fieldHelp' => $fieldHelp,
+                                    'fieldLabels' => $fieldLabels,
+                                    'fieldTypes' => $fieldTypes,
+                                ])
+                            </div>
+                        @endif
                     </section>
                 @endforeach
             </div>
@@ -417,10 +505,39 @@
             const panels = Array.from(document.querySelectorAll('[data-tab-panel]'));
             const activeTabInput = document.querySelector('[data-active-tab-input]');
             const storageKey = 'smart-backup-settings-active-tab';
+            const settingsForm = document.querySelector('.settings-form');
+            const includeSelect = document.querySelector('[data-table-include]');
+            const excludeSelect = document.querySelector('[data-table-exclude]');
+            const moveToExcludeButton = document.querySelector('[data-move-to-exclude]');
+            const moveToIncludeButton = document.querySelector('[data-move-to-include]');
 
             if (tabs.length === 0 || panels.length === 0) {
                 return;
             }
+
+            const moveSelectedOptions = function (fromSelect, toSelect) {
+                if (!fromSelect || !toSelect) {
+                    return;
+                }
+
+                const selectedOptions = Array.from(fromSelect.selectedOptions);
+
+                selectedOptions.forEach(function (option) {
+                    option.selected = false;
+                    toSelect.appendChild(option);
+                });
+
+                [fromSelect, toSelect].forEach(function (select) {
+                    Array.from(select.options)
+                        .sort(function (left, right) {
+                            return left.text.localeCompare(right.text);
+                        })
+                        .forEach(function (option) {
+                            select.appendChild(option);
+                            option.selected = true;
+                        });
+                });
+            };
 
             const activateTab = function (target) {
                 tabs.forEach(function (tab) {
@@ -445,6 +562,32 @@
                     activateTab(tab.getAttribute('data-tab-target'));
                 });
             });
+
+            if (moveToExcludeButton) {
+                moveToExcludeButton.addEventListener('click', function () {
+                    moveSelectedOptions(includeSelect, excludeSelect);
+                });
+            }
+
+            if (moveToIncludeButton) {
+                moveToIncludeButton.addEventListener('click', function () {
+                    moveSelectedOptions(excludeSelect, includeSelect);
+                });
+            }
+
+            if (settingsForm) {
+                settingsForm.addEventListener('submit', function () {
+                    [includeSelect, excludeSelect].forEach(function (select) {
+                        if (!select) {
+                            return;
+                        }
+
+                        Array.from(select.options).forEach(function (option) {
+                            option.selected = true;
+                        });
+                    });
+                });
+            }
 
             const savedTab = window.localStorage.getItem(storageKey);
             const defaultTab = @json($initialTab);
