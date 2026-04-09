@@ -157,6 +157,7 @@
                     <select name="format">
                         <option value="sql" {{ ($config['format'] ?? 'sql') === 'sql' ? 'selected' : '' }}>SQL</option>
                         <option value="json" {{ ($config['format'] ?? 'sql') === 'json' ? 'selected' : '' }}>JSON</option>
+                        <option value="csv" {{ ($config['format'] ?? 'sql') === 'csv' ? 'selected' : '' }}>CSV</option>
                     </select>
                 </label>
 
