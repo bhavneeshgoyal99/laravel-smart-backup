@@ -50,9 +50,20 @@ class BackupController extends Controller
             'mode' => ['nullable', 'in:full,incremental'],
             'format' => ['nullable', 'in:sql,json,csv'],
             'driver' => ['nullable', 'string'],
+            'tables_text' => ['nullable', 'string'],
             'tables' => ['nullable', 'array'],
             'tables.*' => ['string'],
         ]);
+
+        if (array_key_exists('tables_text', $data)) {
+            $data['tables'] = collect(preg_split('/\r\n|\r|\n/', (string) $data['tables_text']))
+                ->map(static fn (string $table): string => trim($table))
+                ->filter()
+                ->values()
+                ->all();
+
+            unset($data['tables_text']);
+        }
 
         $result = $this->backupManager->run($data);
 

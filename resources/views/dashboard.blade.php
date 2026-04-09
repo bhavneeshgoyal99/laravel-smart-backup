@@ -110,6 +110,12 @@
         .restore-picker-note {
             margin-top: -4px;
         }
+
+        .table-preview {
+            min-height: 132px;
+            resize: vertical;
+        }
+
     </style>
 
     <div class="hero">
@@ -156,7 +162,12 @@
 
                 <label>
                     Tables
-                    <input type="text" name="tables[]" placeholder="users, orders">
+                    <textarea name="tables_text" class="table-preview" placeholder="users&#10;orders">{{ implode("\n", (array) ($config['tables_include'] ?? [])) }}</textarea>
+                    @if (!empty($config['tables_include']))
+                        <span class="field-note">Included tables from Settings are prefilled here. You can add or remove table names before running the backup.</span>
+                    @else
+                        <span class="muted">Leave this empty to consider all tables except those excluded in Settings.</span>
+                    @endif
                 </label>
 
                 <button type="submit" class="button primary">Run Backup</button>

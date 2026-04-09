@@ -118,6 +118,8 @@ class BackupHistoryService
         return [
             'mode' => $this->settings->get('mode'),
             'format' => $this->settings->get('format'),
+            'tables_include' => (array) $this->settings->get('tables.include', []),
+            'tables_exclude' => (array) $this->settings->get('tables.exclude', []),
             'disk' => $this->settings->get('storage.disk'),
             'path' => $this->settings->get('storage.path'),
             'chunk_size' => $this->settings->get('chunk_size'),
