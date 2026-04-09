@@ -96,6 +96,7 @@
         'tables.include' => 'Include',
         'tables.exclude' => 'Exclude',
         'restore.disable_foreign_key_constraints' => 'Temporarily Disable Foreign Key Constraints During Restore',
+        'resilience.retry_sleep_microseconds' => 'Retry Sleep Seconds',
     ];
 
     $fieldTypes = [
@@ -103,6 +104,8 @@
         'schedule.without_overlapping' => 'boolean_radio',
         'restore.disable_foreign_key_constraints' => 'boolean_radio',
         'maintenance.enabled' => 'boolean_radio',
+        'resilience.retry_sleep_microseconds' => 'decimal_number',
+        'incremental.last_backup_at' => 'date',
     ];
 
     $generalSettings = [];
@@ -304,6 +307,10 @@
 
         .error-text {
             color: var(--danger);
+        }
+
+        textarea {
+            resize: none;
         }
 
         .settings-panel > .card {

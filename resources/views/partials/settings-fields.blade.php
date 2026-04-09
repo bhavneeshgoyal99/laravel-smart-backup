@@ -14,6 +14,15 @@
         $options = $fieldOptions[$path] ?? null;
         $arrayValue = is_array($selected) ? $selected : (is_array($value) ? $value : []);
         $fieldType = $fieldTypes[$normalizedPath] ?? null;
+        $dateValue = null;
+
+        if ($fieldType === 'date' && $selected !== null && $selected !== '') {
+            try {
+                $dateValue = \Illuminate\Support\Carbon::parse((string) $selected)->format('Y-m-d');
+            } catch (\Throwable $exception) {
+                $dateValue = (string) $selected;
+            }
+        }
     @endphp
 
     @if (is_array($value) && ! $isLeafArray($value))
@@ -34,7 +43,7 @@
             </div>
         </div>
     @else
-        <label for="{{ $id }}">
+        <div for="{{ $id }}">
             {{ $label }}
 
             @if (isset($fieldHelp[$path]))
@@ -87,6 +96,10 @@
                         </option>
                     @endforeach
                 </select>
+            @elseif ($fieldType === 'date')
+                <input id="{{ $id }}" type="date" name="{{ $name }}" value="{{ $dateValue }}">
+            @elseif ($fieldType === 'decimal_number')
+                <input id="{{ $id }}" type="number" step="any" name="{{ $name }}" value="{{ $selected }}">
             @elseif (is_array($value))
                 <textarea id="{{ $id }}" name="{{ $name }}" rows="{{ max(3, count($arrayValue) + 1) }}">{{ implode(PHP_EOL, $arrayValue) }}</textarea>
             @elseif (is_int($value))
@@ -100,6 +113,6 @@
             @error($path)
                 <span class="error-text">{{ $message }}</span>
             @enderror
-        </label>
+            </div>
     @endif
 @endforeach

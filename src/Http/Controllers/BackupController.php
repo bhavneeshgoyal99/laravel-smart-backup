@@ -201,14 +201,34 @@ class BackupController extends Controller
 
     public function settings(): View
     {
+        $settings = $this->settings->all();
+
+        if (isset($settings['resilience']['retry_sleep_microseconds'])) {
+            $seconds = ((int) $settings['resilience']['retry_sleep_microseconds']) / 1000000;
+            $settings['resilience']['retry_sleep_microseconds'] = fmod($seconds, 1.0) === 0.0
+                ? (int) $seconds
+                : $seconds;
+        }
+
         return view('smart-backup::settings', [
-            'settings' => $this->settings->all(),
+            'settings' => $settings,
         ]);
     }
 
     public function updateSettings(Request $request): RedirectResponse
     {
-        foreach ($this->settings->sanitizeInput($request->except(['_token', '_method'])) as $key => $value) {
+        $settings = $this->settings->sanitizeInput($request->except(['_token', '_method']));
+
+        $retrySleepSeconds = $request->input('resilience.retry_sleep_microseconds');
+
+        if ($retrySleepSeconds !== null && $retrySleepSeconds !== '' && is_numeric($retrySleepSeconds)) {
+            $settings['resilience.retry_sleep_microseconds'] = max(
+                0,
+                (int) round(((float) $retrySleepSeconds) * 1000000)
+            );
+        }
+
+        foreach ($settings as $key => $value) {
             $this->settings->set($key, $value);
         }
 
