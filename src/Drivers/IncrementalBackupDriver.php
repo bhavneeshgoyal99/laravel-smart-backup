@@ -35,6 +35,15 @@ class IncrementalBackupDriver implements BackupDriver
             throw new InvalidArgumentException('IncrementalBackupDriver only supports incremental mode.');
         }
 
+        $format = (string) ($context['format'] ?? $this->config->get('backup.format', 'json'));
+
+        if (! in_array($format, ['sql', 'json', 'csv'], true)) {
+            throw new InvalidArgumentException(sprintf(
+                'IncrementalBackupDriver only supports [sql, json, csv] export. [%s] given.',
+                $format
+            ));
+        }
+
         $connectionName = $context['connection'] ?? $this->config->get('backup.connection');
         $disk = (string) ($context['disk'] ?? $this->config->get('backup.storage.disk', 'local'));
         $basePath = (string) ($context['path'] ?? $this->config->get('backup.storage.path', 'backups/database'));
@@ -58,13 +67,19 @@ class IncrementalBackupDriver implements BackupDriver
         }
 
         $primaryKey = $this->resolvePrimaryKey($schema, $table);
-        $relativePath = $this->storage->tableBackupPath($mode, $table, 'jsonl', $startedAt, $basePath);
+        $relativePath = $this->storage->tableBackupPath($mode, $table, $format, $startedAt, $basePath);
         $temporaryFile = $this->storage->createTemporaryStream();
         $stream = $temporaryFile['stream'];
         $writtenRows = 0;
         $chunkCount = 0;
 
         try {
+            if ($format === 'json') {
+                fwrite($stream, "[\n");
+            } elseif ($format === 'csv') {
+                fputcsv($stream, array_merge(['__operation', '__change_column', '__change_timestamp'], $columns));
+            }
+
             $query = $connection->table($table);
             $this->applyChangeWindow($query, $timestampColumns, $lastBackupAt, $startedAt);
 
@@ -72,34 +87,64 @@ class IncrementalBackupDriver implements BackupDriver
                 $query->orderBy($primaryKey)->chunkById($chunkSize, function ($rows) use (
                     $stream,
                     $table,
+                    $columns,
+                    $format,
+                    $primaryKey,
                     $timestampColumns,
                     &$writtenRows,
                     &$chunkCount
                 ) {
                     $chunkCount++;
+                    $payloads = [];
 
                     foreach ($rows as $row) {
-                        $payload = $this->buildRowPayload($table, (array) $row, $timestampColumns);
-                        fwrite($stream, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL);
-                        $writtenRows++;
+                        $payloads[] = $this->buildRowPayload($table, (array) $row, $timestampColumns);
                     }
+
+                    $this->writeChunk(
+                        $stream,
+                        $table,
+                        $columns,
+                        $payloads,
+                        $format,
+                        $primaryKey,
+                        $writtenRows > 0
+                    );
+                    $writtenRows += count($payloads);
                 }, $primaryKey);
             } else {
                 $query->orderBy(Arr::first($timestampColumns))->chunk($chunkSize, function ($rows) use (
                     $stream,
                     $table,
+                    $columns,
+                    $format,
+                    $primaryKey,
                     $timestampColumns,
                     &$writtenRows,
                     &$chunkCount
                 ) {
                     $chunkCount++;
+                    $payloads = [];
 
                     foreach ($rows as $row) {
-                        $payload = $this->buildRowPayload($table, (array) $row, $timestampColumns);
-                        fwrite($stream, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL);
-                        $writtenRows++;
+                        $payloads[] = $this->buildRowPayload($table, (array) $row, $timestampColumns);
                     }
+
+                    $this->writeChunk(
+                        $stream,
+                        $table,
+                        $columns,
+                        $payloads,
+                        $format,
+                        $primaryKey,
+                        $writtenRows > 0
+                    );
+                    $writtenRows += count($payloads);
                 });
+            }
+
+            if ($format === 'json') {
+                fwrite($stream, "]\n");
             }
 
             $this->storage->writeStream($relativePath, $stream, $disk);
@@ -111,6 +156,7 @@ class IncrementalBackupDriver implements BackupDriver
             'table' => $table,
             'mode' => $mode,
             'driver' => $this->name(),
+            'format' => $format,
             'disk' => $disk,
             'path' => $relativePath,
             'chunk_size' => $chunkSize,
@@ -122,6 +168,57 @@ class IncrementalBackupDriver implements BackupDriver
             'chunks' => $chunkCount,
             'status' => 'completed',
         ];
+    }
+
+    protected function writeChunk(
+        $stream,
+        string $table,
+        array $columns,
+        array $payloads,
+        string $format,
+        ?string $primaryKey,
+        bool $prependSeparator
+    ): void {
+        if ($format === 'json') {
+            foreach ($payloads as $index => $payload) {
+                if ($prependSeparator || $index > 0) {
+                    fwrite($stream, ",\n");
+                }
+
+                fwrite($stream, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            }
+
+            return;
+        }
+
+        if ($format === 'csv') {
+            foreach ($payloads as $payload) {
+                $row = $payload['data'] ?? [];
+
+                fputcsv($stream, array_merge(
+                    [
+                        $payload['operation'] ?? 'upsert',
+                        $payload['change_column'] ?? null,
+                        $payload['change_timestamp'] ?? null,
+                    ],
+                    array_map(
+                    static fn (string $column) => $row[$column] ?? null,
+                    $columns
+                    )
+                ));
+            }
+
+            return;
+        }
+
+        foreach ($payloads as $payload) {
+            fwrite($stream, $this->buildSqlStatement(
+                $table,
+                $payload,
+                $columns,
+                $primaryKey
+            ));
+        }
     }
 
     protected function resolveTimestampColumns(array $columns): array
@@ -200,5 +297,77 @@ class IncrementalBackupDriver implements BackupDriver
             'change_timestamp' => $changeTimestamp?->toDateTimeString(),
             'data' => $row,
         ];
+    }
+
+    protected function buildSqlStatement(string $table, array $payload, array $columns, ?string $primaryKey): string
+    {
+        $row = $payload['data'] ?? [];
+        $operation = $payload['operation'] ?? 'upsert';
+
+        if ($operation === 'deleted') {
+            return $this->buildDeleteStatement($table, $row, $columns, $primaryKey);
+        }
+
+        return $this->buildInsertStatement($table, $row, $columns);
+    }
+
+    protected function buildInsertStatement(string $table, array $row, array $columns): string
+    {
+        $wrappedColumns = array_map(
+            static fn (string $column) => '`' . str_replace('`', '``', $column) . '`',
+            $columns
+        );
+
+        $values = array_map(function (string $column) use ($row): string {
+            return $this->sqlValue($row[$column] ?? null);
+        }, $columns);
+
+        return sprintf(
+            "INSERT INTO `%s` (%s) VALUES (%s);\n",
+            str_replace('`', '``', $table),
+            implode(', ', $wrappedColumns),
+            implode(', ', $values)
+        );
+    }
+
+    protected function buildDeleteStatement(string $table, array $row, array $columns, ?string $primaryKey): string
+    {
+        $matchColumns = $primaryKey !== null && array_key_exists($primaryKey, $row)
+            ? [$primaryKey]
+            : $columns;
+
+        $conditions = array_map(function (string $column) use ($row): string {
+            $wrappedColumn = '`' . str_replace('`', '``', $column) . '`';
+            $value = $row[$column] ?? null;
+
+            if ($value === null) {
+                return sprintf('%s IS NULL', $wrappedColumn);
+            }
+
+            return sprintf('%s = %s', $wrappedColumn, $this->sqlValue($value));
+        }, $matchColumns);
+
+        return sprintf(
+            "DELETE FROM `%s` WHERE %s;\n",
+            str_replace('`', '``', $table),
+            implode(' AND ', $conditions)
+        );
+    }
+
+    protected function sqlValue(mixed $value): string
+    {
+        if ($value === null) {
+            return 'NULL';
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        return "'" . str_replace("'", "''", (string) $value) . "'";
     }
 }

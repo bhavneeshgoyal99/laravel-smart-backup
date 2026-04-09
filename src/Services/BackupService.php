@@ -33,10 +33,6 @@ class BackupService
         );
         $format = $this->resolveFormat($options['format'] ?? null);
 
-        if ($mode === 'incremental' && $format !== 'json') {
-            $format = 'json';
-        }
-
         $metadata = [
             'status' => 'running',
             'mode' => $mode,

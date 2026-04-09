@@ -224,6 +224,35 @@ class RestoreService
                     continue;
                 }
 
+                if (array_key_exists('data', $row) && is_array($row['data'])) {
+                    $incrementalTable = $table ?? Arr::get($row, 'table');
+
+                    if (! is_string($incrementalTable) || $incrementalTable === '') {
+                        throw new RuntimeException('Invalid incremental backup row payload encountered during restore.');
+                    }
+
+                    $this->restorePayloadRow(
+                        $connection,
+                        $incrementalTable,
+                        $row['data'],
+                        (string) Arr::get($row, 'operation', 'upsert')
+                    );
+
+                    $rows++;
+                    $statements++;
+                    $restoredTables[$incrementalTable] = true;
+
+                    if (is_callable($progressCallback)) {
+                        $progressCallback('row.restored', [
+                            'table' => $incrementalTable,
+                            'rows' => $rows,
+                            'statements' => $statements,
+                        ]);
+                    }
+
+                    continue;
+                }
+
                 $batch[] = $row;
 
                 if (count($batch) < $this->restoreInsertBatchSize()) {
@@ -283,13 +312,12 @@ class RestoreService
                 throw new RuntimeException('Invalid incremental backup row payload encountered during restore.');
             }
 
-            $operation = Arr::get($payload, 'operation', 'upsert');
-
-            if ($operation === 'deleted') {
-                $this->restoreDeletedRow($connection, $targetTable, $row);
-            } else {
-                $connection->table($targetTable)->insert($row);
-            }
+            $this->restorePayloadRow(
+                $connection,
+                $targetTable,
+                $row,
+                (string) Arr::get($payload, 'operation', 'upsert')
+            );
 
             $rows++;
             $statements++;
@@ -337,6 +365,7 @@ class RestoreService
         $rows = 0;
         $statements = 0;
         $batch = [];
+        $isIncrementalCsv = in_array('__operation', $headers, true) && in_array('__change_timestamp', $headers, true);
 
         while (($data = fgetcsv($stream)) !== false) {
             if ($data === [null] || $data === false) {
@@ -355,6 +384,25 @@ class RestoreService
             }
 
             if ($row === []) {
+                continue;
+            }
+
+            if ($isIncrementalCsv) {
+                $operation = (string) ($row['__operation'] ?? 'upsert');
+                unset($row['__operation'], $row['__change_column'], $row['__change_timestamp']);
+
+                $this->restorePayloadRow($connection, $targetTable, $row, $operation);
+                $rows++;
+                $statements++;
+
+                if (is_callable($progressCallback)) {
+                    $progressCallback('row.restored', [
+                        'table' => $targetTable,
+                        'rows' => $rows,
+                        'statements' => $statements,
+                    ]);
+                }
+
                 continue;
             }
 
@@ -403,6 +451,37 @@ class RestoreService
     {
         if (array_key_exists('id', $row)) {
             $connection->table($table)->where('id', $row['id'])->delete();
+
+            return;
+        }
+
+        $query = $connection->table($table);
+
+        foreach ($row as $column => $value) {
+            if ($value === null) {
+                $query->whereNull($column);
+                continue;
+            }
+
+            $query->where($column, $value);
+        }
+
+        $query->delete();
+    }
+
+    protected function restorePayloadRow($connection, string $table, array $row, string $operation): void
+    {
+        if ($operation === 'deleted') {
+            $this->restoreDeletedRow($connection, $table, $row);
+
+            return;
+        }
+
+        if (array_key_exists('id', $row)) {
+            $connection->table($table)->updateOrInsert(
+                ['id' => $row['id']],
+                $row
+            );
 
             return;
         }

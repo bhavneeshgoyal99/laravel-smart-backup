@@ -22,13 +22,14 @@ class LocalBackupDriver implements BackupDriver
     public function backupTable(string $table, string $mode, array $context = []): array
     {
         $startedAt = $context['started_at'] ?? now()->toDateTimeString();
-        $extension = $mode === 'incremental' ? 'jsonl' : (($context['format'] ?? $this->config->get('backup.format')) === 'json' ? 'json' : 'sql');
+        $format = $context['format'] ?? $this->config->get('backup.format', 'sql');
+        $extension = in_array($format, ['sql', 'json', 'csv'], true) ? $format : 'sql';
 
         return [
             'table' => $table,
             'mode' => $mode,
             'driver' => $this->name(),
-            'format' => $context['format'] ?? $this->config->get('backup.format'),
+            'format' => $format,
             'disk' => $context['disk'] ?? $this->config->get('backup.storage.disk'),
             'path' => $this->storage->tableBackupPath(
                 $mode,
