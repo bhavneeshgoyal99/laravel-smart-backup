@@ -4,6 +4,23 @@
     $completed = $backups->where('status', 'completed')->count();
     $failed = $backups->where('status', 'failed')->count();
     $routePrefix = config('backup.ui.name_prefix', 'smart-backup.');
+    $restoreRuns = $backups
+        ->filter(fn ($backup) => ($backup['status'] ?? null) === 'completed' && count($backup['tables'] ?? []) > 0)
+        ->map(fn ($backup) => [
+            'id' => $backup['id'],
+            'label' => sprintf(
+                '#%s | %s | %s',
+                $backup['id'],
+                ucfirst((string) ($backup['type'] ?? 'backup')),
+                $backup['started_at'] ?? 'n/a'
+            ),
+            'disk' => $backup['disk'] ?? null,
+            'tables' => collect($backup['tables'] ?? [])->map(fn ($table) => [
+                'table_name' => $table['table_name'] ?? 'n/a',
+                'file_path' => $table['file_path'] ?? '',
+            ])->values()->all(),
+        ])
+        ->values();
 @endphp
 
 @section('content')
@@ -89,6 +106,10 @@
             gap: 10px;
             margin-top: 18px;
         }
+
+        .restore-picker-note {
+            margin-top: -4px;
+        }
     </style>
 
     <div class="hero">
@@ -145,13 +166,29 @@
 
     <div class="grid">
         <div class="card">
-            <h2>Restore Backup</h2>
-            <form method="POST" action="{{ route($routePrefix . 'backups.restore') }}" class="stack">
+            <h2>Restore Individual Table</h2>
+            <p class="muted">Select a backup run, then choose the exact table file you want to restore back into the database.</p>
+            <form method="POST" action="{{ route($routePrefix . 'backups.restore') }}" class="stack" data-restore-picker-form>
                 @csrf
                 <label>
-                    Backup File
-                    <input type="text" name="file" placeholder="backups/database/full/2026/04/07/users-20260407_010000.sql" required>
+                    Backup Run
+                    <select data-restore-run-picker>
+                        <option value="">Select a backup run</option>
+                        @foreach ($restoreRuns as $restoreRun)
+                            <option value="{{ $restoreRun['id'] }}">{{ $restoreRun['label'] }}</option>
+                        @endforeach
+                    </select>
                 </label>
+
+                <label>
+                    Backup File
+                    <select name="file" data-restore-file-picker required>
+                        <option value="">Select a backup file</option>
+                    </select>
+                    <span class="field-note restore-picker-note">Choose a run first, then pick an individual file from that backup.</span>
+                </label>
+
+                <input type="hidden" name="disk" value="" data-restore-disk-input>
 
                 <label>
                     Table Override
@@ -322,6 +359,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            const restoreRuns = @json($restoreRuns);
             const openButtons = Array.from(document.querySelectorAll('[data-files-open]'));
             const modals = Array.from(document.querySelectorAll('.files-modal'));
             const restoreButtons = Array.from(document.querySelectorAll('[data-restore-open]'));
@@ -329,6 +367,9 @@
             const restoreForm = document.querySelector('[data-restore-form]');
             const restoreTitle = document.querySelector('[data-restore-title]');
             const restoreDescription = document.querySelector('[data-restore-description]');
+            const restoreRunPicker = document.querySelector('[data-restore-run-picker]');
+            const restoreFilePicker = document.querySelector('[data-restore-file-picker]');
+            const restoreDiskInput = document.querySelector('[data-restore-disk-input]');
 
             const closeModal = function (modal) {
                 modal.classList.remove('open');
@@ -340,6 +381,36 @@
                 modal.setAttribute('aria-hidden', 'false');
             };
 
+            const updateRestoreFiles = function (runId) {
+                if (!restoreFilePicker || !restoreDiskInput) {
+                    return;
+                }
+
+                restoreFilePicker.innerHTML = '<option value="">Select a backup file</option>';
+                restoreDiskInput.value = '';
+
+                const selectedRun = restoreRuns.find(function (run) {
+                    return String(run.id) === String(runId);
+                });
+
+                if (!selectedRun) {
+                    return;
+                }
+
+                restoreDiskInput.value = selectedRun.disk ?? '';
+
+                selectedRun.tables.forEach(function (table) {
+                    if (!table.file_path) {
+                        return;
+                    }
+
+                    const option = document.createElement('option');
+                    option.value = table.file_path;
+                    option.textContent = table.table_name + ' | ' + table.file_path;
+                    restoreFilePicker.appendChild(option);
+                });
+            };
+
             openButtons.forEach(function (button) {
                 button.addEventListener('click', function () {
                     const modal = document.getElementById(button.getAttribute('data-files-open'));
@@ -349,6 +420,12 @@
                     }
                 });
             });
+
+            if (restoreRunPicker) {
+                restoreRunPicker.addEventListener('change', function () {
+                    updateRestoreFiles(restoreRunPicker.value);
+                });
+            }
 
             modals.forEach(function (modal) {
                 modal.addEventListener('click', function (event) {
@@ -390,6 +467,10 @@
                     }
                 });
             });
+
+            if (restoreRunPicker && restoreRunPicker.value) {
+                updateRestoreFiles(restoreRunPicker.value);
+            }
         });
     </script>
 @endsection
