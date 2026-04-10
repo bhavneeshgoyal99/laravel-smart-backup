@@ -30,7 +30,9 @@ class MaintenanceModeService
             return false;
         }
 
-        $this->kernel->call('down');
+        $this->kernel->call('down', [
+            '--render' => 'smart-backup::maintenance',
+        ]);
 
         return true;
     }
