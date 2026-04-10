@@ -11,13 +11,17 @@ class MaintenanceModeService
     public function __construct(
         protected Config $config,
         protected Kernel $kernel,
-        protected Application $application
+        protected Application $application,
+        protected SettingsService $settings
     ) {
     }
 
     public function isEnabled(): bool
     {
-        return (bool) $this->config->get('backup.maintenance.enabled', false);
+        return (bool) $this->settings->get(
+            'maintenance.enabled',
+            (bool) $this->config->get('backup.maintenance.enabled', false)
+        );
     }
 
     public function enable(): bool

@@ -61,7 +61,8 @@ class BackupServiceProvider extends ServiceProvider
             return new MaintenanceModeService(
                 $app['config'],
                 $app->make(\Illuminate\Contracts\Console\Kernel::class),
-                $app
+                $app,
+                $app->make(SettingsService::class)
             );
         });
 
