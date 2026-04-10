@@ -16,7 +16,8 @@ class RestoreService
         protected Config $config,
         protected DatabaseManager $database,
         protected FilesystemManager $filesystem,
-        protected MaintenanceModeService $maintenanceModeService
+        protected MaintenanceModeService $maintenanceModeService,
+        protected SettingsService $settings
     ) {
     }
 
@@ -562,7 +563,10 @@ class RestoreService
 
     protected function guardPassword(mixed $providedPassword): void
     {
-        $configuredPassword = $this->config->get('backup.restore.password');
+        $configuredPassword = $this->settings->get(
+            'restore.password',
+            $this->config->get('backup.restore.password')
+        );
 
         if (! is_string($configuredPassword) || $configuredPassword === '') {
             return;

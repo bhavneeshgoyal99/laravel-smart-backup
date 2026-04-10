@@ -87,7 +87,8 @@ class BackupServiceProvider extends ServiceProvider
                 $app['config'],
                 $app['db'],
                 $app['filesystem'],
-                $app->make(MaintenanceModeService::class)
+                $app->make(MaintenanceModeService::class),
+                $app->make(SettingsService::class)
             );
         });
 
