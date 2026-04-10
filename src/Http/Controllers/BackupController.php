@@ -88,7 +88,19 @@ class BackupController extends Controller
             'password' => ['nullable', 'string'],
         ]);
 
-        $result = $this->restoreService->restore($data);
+        try {
+            $result = $this->restoreService->restore($data);
+        } catch (Throwable $exception) {
+            if (! $request->expectsJson()) {
+                return redirect()
+                    ->route($this->routeName('backups.index'))
+                    ->with('error', $exception->getMessage());
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
 
         if (! $request->expectsJson()) {
             return redirect()
