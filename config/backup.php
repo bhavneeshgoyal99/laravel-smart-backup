@@ -130,22 +130,13 @@ return [
     | Maintenance Mode
     |--------------------------------------------------------------------------
     |
-    | Supported policies:
-    | - always_off
-    | - full_only
-    | - always_on
-    |
-    | The legacy "enabled" flag is still respected as a fallback:
-    | true => always_on
-    | false => always_off
+    | When enabled, the package will put the application into maintenance
+    | mode before backup and restore operations, then bring it back up once
+    | the operation has completed.
     |
     */
     'maintenance' => [
         'enabled' => (bool) env('SMART_BACKUP_MAINTENANCE_ENABLED', false),
-        'policy' => env('SMART_BACKUP_MAINTENANCE_POLICY', 'always_off'),
-        'secret' => env('SMART_BACKUP_MAINTENANCE_SECRET'),
-        'retry' => (int) env('SMART_BACKUP_MAINTENANCE_RETRY', 60),
-        'refresh' => (int) env('SMART_BACKUP_MAINTENANCE_REFRESH', 15),
     ],
 
     /*

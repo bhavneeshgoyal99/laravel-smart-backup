@@ -15,7 +15,8 @@ class RestoreService
     public function __construct(
         protected Config $config,
         protected DatabaseManager $database,
-        protected FilesystemManager $filesystem
+        protected FilesystemManager $filesystem,
+        protected MaintenanceModeService $maintenanceModeService
     ) {
     }
 
@@ -42,6 +43,9 @@ class RestoreService
             'format' => $extension,
             'rows' => 0,
             'statements' => 0,
+            'maintenance_mode' => [
+                'enabled' => false,
+            ],
         ];
 
         if (is_callable($progressCallback)) {
@@ -51,35 +55,47 @@ class RestoreService
         $connection = $this->database->connection($connectionName);
 
         try {
-            if ($this->shouldDisableForeignKeyConstraints()) {
-                $connection->getSchemaBuilder()->disableForeignKeyConstraints();
-                $metadata['foreign_key_constraints_disabled'] = true;
-            }
+            $this->maintenanceModeService->runSafely(function (bool $maintenanceEnabled) use (
+                $connection,
+                $stream,
+                $table,
+                $path,
+                $extension,
+                $progressCallback,
+                &$metadata
+            ) {
+                $metadata['maintenance_mode']['enabled'] = $maintenanceEnabled;
 
-            if ($extension === 'sql') {
-                $metadata = array_merge($metadata, $this->restoreSql($connection, $stream, $table, $progressCallback));
-            } elseif ($extension === 'csv') {
-                $metadata = array_merge($metadata, $this->restoreCsv(
-                    $connection,
-                    $stream,
-                    $table,
-                    $path,
-                    $progressCallback
-                ));
-            } elseif (in_array($extension, ['json', 'jsonl'], true)) {
-                $metadata = array_merge($metadata, $this->restoreJson(
-                    $connection,
-                    $stream,
-                    $extension,
-                    $table,
-                    $path,
-                    $progressCallback
-                ));
-            } else {
-                throw new InvalidArgumentException(sprintf('Unsupported restore format [%s].', $extension));
-            }
+                if ($this->shouldDisableForeignKeyConstraints()) {
+                    $connection->getSchemaBuilder()->disableForeignKeyConstraints();
+                    $metadata['foreign_key_constraints_disabled'] = true;
+                }
 
-            $metadata['status'] = 'completed';
+                if ($extension === 'sql') {
+                    $metadata = array_merge($metadata, $this->restoreSql($connection, $stream, $table, $progressCallback));
+                } elseif ($extension === 'csv') {
+                    $metadata = array_merge($metadata, $this->restoreCsv(
+                        $connection,
+                        $stream,
+                        $table,
+                        $path,
+                        $progressCallback
+                    ));
+                } elseif (in_array($extension, ['json', 'jsonl'], true)) {
+                    $metadata = array_merge($metadata, $this->restoreJson(
+                        $connection,
+                        $stream,
+                        $extension,
+                        $table,
+                        $path,
+                        $progressCallback
+                    ));
+                } else {
+                    throw new InvalidArgumentException(sprintf('Unsupported restore format [%s].', $extension));
+                }
+
+                $metadata['status'] = 'completed';
+            });
         } finally {
             if (($metadata['foreign_key_constraints_disabled'] ?? false) === true) {
                 $connection->getSchemaBuilder()->enableForeignKeyConstraints();

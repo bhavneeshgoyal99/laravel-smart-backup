@@ -11,7 +11,7 @@ Lightweight Laravel package for full and incremental database backups with chunk
 - SQL and JSON export
 - Restore from SQL, JSON, and JSONL backup files
 - Scheduled backups with frequency, time, and timezone support
-- Optional maintenance mode during backup runs
+- Optional maintenance mode during backup and restore runs
 - Optional Blade dashboard with backup list, run, restore, and settings screens
 - Package migrations and config publishing
 
@@ -136,17 +136,13 @@ The package registers itself with Laravel's scheduler when scheduling is enabled
 
 ## Maintenance Mode
 
-Supported policies:
-
-- `always_off`
-- `full_only`
-- `always_on`
-
-Example:
+When enabled, the package will automatically run Laravel maintenance mode
+before backup and restore operations, then bring the application back up
+after the operation completes.
 
 ```php
 'maintenance' => [
-    'policy' => 'full_only',
+    'enabled' => true,
 ],
 ```
 

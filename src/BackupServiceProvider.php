@@ -85,7 +85,8 @@ class BackupServiceProvider extends ServiceProvider
             return new RestoreService(
                 $app['config'],
                 $app['db'],
-                $app['filesystem']
+                $app['filesystem'],
+                $app->make(MaintenanceModeService::class)
             );
         });
 

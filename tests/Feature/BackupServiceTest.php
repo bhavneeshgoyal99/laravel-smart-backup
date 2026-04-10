@@ -4,8 +4,10 @@ namespace BhavneeshGoyal\LaravelSmartBackup\Tests\Feature;
 
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupService;
 use BhavneeshGoyal\LaravelSmartBackup\Tests\TestCase;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Mockery;
 
 class BackupServiceTest extends TestCase
 {
@@ -69,5 +71,31 @@ class BackupServiceTest extends TestCase
         $this->assertStringEndsWith('.csv', $table->file_path);
         $this->assertTrue(File::exists($path));
         $this->assertStringContainsString('name,email,created_at,updated_at', File::get($path));
+    }
+
+    public function test_backup_toggles_maintenance_mode_when_enabled(): void
+    {
+        DB::table('users')->insert([
+            'name' => 'Maintenance Test',
+            'email' => 'maintenance@example.com',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $kernel = Mockery::mock(Kernel::class);
+        $kernel->shouldReceive('call')->once()->with('down');
+        $kernel->shouldReceive('call')->once()->with('up');
+        $this->app->instance(Kernel::class, $kernel);
+
+        $this->app['config']->set('backup.mode', 'full');
+        $this->app['config']->set('backup.format', 'sql');
+        $this->app['config']->set('backup.storage.disk', 'local');
+        $this->app['config']->set('backup.tables.include', ['users']);
+        $this->app['config']->set('backup.maintenance.enabled', true);
+
+        $result = $this->app->make(BackupService::class)->run();
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertTrue($result['maintenance_mode']['enabled']);
     }
 }

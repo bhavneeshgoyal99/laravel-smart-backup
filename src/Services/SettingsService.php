@@ -18,7 +18,7 @@ class SettingsService
     {
         $key = $this->normalizeKey($key);
         $default = func_num_args() === 1
-            ? $this->config->get('backup.' . $key)
+            ? $this->normalizeConfigValue($key, $this->config->get('backup.' . $key))
             : $default;
 
         if (! $this->tableExists()) {
@@ -31,7 +31,7 @@ class SettingsService
             return $default;
         }
 
-        return $this->restoreValue($setting->value, $default);
+        return $this->normalizeConfigValue($key, $this->restoreValue($setting->value, $default));
     }
 
     public function set(string $key, $value): void
@@ -90,6 +90,7 @@ class SettingsService
 
         unset($defaults['drivers'], $defaults['ui']);
         unset($defaults['schedule']['driver']);
+        $defaults = $this->stripLegacyMaintenanceSettings($defaults);
 
         return $defaults;
     }
@@ -127,6 +128,30 @@ class SettingsService
     protected function tableExists(): bool
     {
         return $this->database->getSchemaBuilder()->hasTable('smart_backup_settings');
+    }
+
+    protected function stripLegacyMaintenanceSettings(array $settings): array
+    {
+        if (! isset($settings['maintenance']) || ! is_array($settings['maintenance'])) {
+            return $settings;
+        }
+
+        $settings['maintenance'] = [
+            'enabled' => (bool) ($settings['maintenance']['enabled'] ?? false),
+        ];
+
+        return $settings;
+    }
+
+    protected function normalizeConfigValue(string $key, mixed $value): mixed
+    {
+        if ($key === 'maintenance') {
+            return [
+                'enabled' => (bool) (is_array($value) ? ($value['enabled'] ?? false) : false),
+            ];
+        }
+
+        return $value;
     }
 
     protected function flattenSettings(array $settings, string $prefix = ''): array

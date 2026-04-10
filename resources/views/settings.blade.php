@@ -70,11 +70,6 @@
             'json' => 'JSON',
             'csv' => 'CSV',
         ],
-        'maintenance.policy' => [
-            'always_off' => 'Always Off',
-            'full_only' => 'Full Only',
-            'always_on' => 'Always On',
-        ],
         'storage.disk' => collect(config('filesystems.disks', []))
             ->keys()
             ->mapWithKeys(fn (string $disk) => [$disk => $disk])

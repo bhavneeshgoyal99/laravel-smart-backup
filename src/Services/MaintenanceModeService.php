@@ -5,7 +5,6 @@ namespace BhavneeshGoyal\LaravelSmartBackup\Services;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
-use InvalidArgumentException;
 
 class MaintenanceModeService
 {
@@ -16,14 +15,9 @@ class MaintenanceModeService
     ) {
     }
 
-    public function shouldEnableForMode(string $mode): bool
+    public function isEnabled(): bool
     {
-        return match ($this->resolvePolicy()) {
-            'always_on' => true,
-            'full_only' => $mode === 'full',
-            'always_off' => false,
-            default => false,
-        };
+        return (bool) $this->config->get('backup.maintenance.enabled', false);
     }
 
     public function enable(): bool
@@ -32,30 +26,22 @@ class MaintenanceModeService
             return false;
         }
 
-        $this->kernel->call('down', array_filter([
-            '--secret' => $this->config->get('backup.maintenance.secret'),
-            '--retry' => $this->config->get('backup.maintenance.retry'),
-            '--refresh' => $this->config->get('backup.maintenance.refresh'),
-        ], static fn ($value) => $value !== null && $value !== ''));
+        $this->kernel->call('down');
 
         return true;
     }
 
     public function disable(): void
     {
-        if (! $this->application->isDownForMaintenance()) {
-            return;
-        }
-
         $this->kernel->call('up');
     }
 
-    public function runSafely(string $mode, callable $callback): mixed
+    public function runSafely(callable $callback): mixed
     {
         $enabledByService = false;
 
         try {
-            if ($this->shouldEnableForMode($mode)) {
+            if ($this->isEnabled()) {
                 $enabledByService = $this->enable();
             }
 
@@ -67,21 +53,4 @@ class MaintenanceModeService
         }
     }
 
-    protected function resolvePolicy(): string
-    {
-        $policy = $this->config->get('backup.maintenance.policy');
-
-        if (! is_string($policy) || $policy === '') {
-            return $this->config->get('backup.maintenance.enabled', false) ? 'always_on' : 'always_off';
-        }
-
-        if (! in_array($policy, ['always_off', 'full_only', 'always_on'], true)) {
-            throw new InvalidArgumentException(sprintf(
-                'Unsupported maintenance policy [%s].',
-                $policy
-            ));
-        }
-
-        return $policy;
-    }
 }

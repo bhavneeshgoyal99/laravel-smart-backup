@@ -45,7 +45,6 @@ class BackupService
             'started_at' => $startedAt->toDateTimeString(),
             'selected_tables' => $tables,
             'maintenance_mode' => [
-                'policy' => $this->settings->get('maintenance.policy'),
                 'enabled' => false,
             ],
             'retry_attempts' => $this->retryAttempts(),
@@ -70,7 +69,7 @@ class BackupService
         }
 
         try {
-            $this->maintenanceModeService->runSafely($mode, function (bool $maintenanceEnabled) use (
+            $this->maintenanceModeService->runSafely(function (bool $maintenanceEnabled) use (
                 $tables,
                 $mode,
                 $runId,

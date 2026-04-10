@@ -1,0 +1,42 @@
+<?php
+
+namespace BhavneeshGoyal\LaravelSmartBackup\Tests\Feature;
+
+use BhavneeshGoyal\LaravelSmartBackup\Services\RestoreService;
+use BhavneeshGoyal\LaravelSmartBackup\Tests\TestCase;
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Mockery;
+
+class RestoreServiceTest extends TestCase
+{
+    public function test_restore_toggles_maintenance_mode_when_enabled(): void
+    {
+        $root = $this->app['config']->get('filesystems.disks.local.root');
+        $path = 'backups/database/full/2026/04/10/users.sql';
+
+        File::ensureDirectoryExists(dirname($root . '/' . $path));
+        File::put($root . '/' . $path, <<<'SQL'
+INSERT INTO "users" ("name", "email", "created_at", "updated_at") VALUES ('Restored User', 'restored@example.com', '2026-04-10 00:00:00', '2026-04-10 00:00:00');
+SQL);
+
+        $kernel = Mockery::mock(Kernel::class);
+        $kernel->shouldReceive('call')->once()->with('down');
+        $kernel->shouldReceive('call')->once()->with('up');
+        $this->app->instance(Kernel::class, $kernel);
+
+        $this->app['config']->set('backup.maintenance.enabled', true);
+
+        $result = $this->app->make(RestoreService::class)->restore([
+            'file' => $path,
+            'disk' => 'local',
+        ]);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertTrue($result['maintenance_mode']['enabled']);
+        $this->assertDatabaseHas('users', [
+            'email' => 'restored@example.com',
+        ]);
+    }
+}
