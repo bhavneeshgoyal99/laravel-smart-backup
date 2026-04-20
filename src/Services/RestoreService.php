@@ -31,7 +31,7 @@ class RestoreService
 
         $this->guardPassword($options['password'] ?? null);
 
-        $connectionName = $this->config->get('backup.connection');
+        $connectionName = $this->resolveConnectionName();
         $table = $this->normalizeTable($options['table'] ?? null);
         $stream = $this->openReadStream($path, $options['disk'] ?? null);
         $extension = Str::lower(pathinfo($path, PATHINFO_EXTENSION));
@@ -110,6 +110,23 @@ class RestoreService
         }
 
         return $metadata;
+    }
+
+    protected function resolveConnectionName(): ?string
+    {
+        $connectionName = $this->normalizeTable($this->settings->get('connection'));
+
+        if ($connectionName === null) {
+            return $this->normalizeTable($this->config->get('database.default'));
+        }
+
+        $configuredConnections = array_keys((array) $this->config->get('database.connections', []));
+
+        if ($configuredConnections === [] || in_array($connectionName, $configuredConnections, true)) {
+            return $connectionName;
+        }
+
+        return $this->normalizeTable($this->config->get('database.default'));
     }
 
     protected function restoreSql($connection, $stream, ?string $table, ?callable $progressCallback): array

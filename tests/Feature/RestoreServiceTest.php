@@ -39,4 +39,28 @@ SQL);
             'email' => 'restored@example.com',
         ]);
     }
+
+    public function test_restore_falls_back_to_default_database_connection_when_backup_connection_is_invalid(): void
+    {
+        $root = $this->app['config']->get('filesystems.disks.local.root');
+        $path = 'backups/database/full/2026/04/10/users-invalid-connection.sql';
+
+        File::ensureDirectoryExists(dirname($root . '/' . $path));
+        File::put($root . '/' . $path, <<<'SQL'
+INSERT INTO "users" ("name", "email", "created_at", "updated_at") VALUES ('Fallback User', 'fallback@example.com', '2026-04-10 00:00:00', '2026-04-10 00:00:00');
+SQL);
+
+        $this->app['config']->set('backup.connection', 'sql');
+
+        $result = $this->app->make(RestoreService::class)->restore([
+            'file' => $path,
+            'disk' => 'local',
+        ]);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame('testing', $result['connection']);
+        $this->assertDatabaseHas('users', [
+            'email' => 'fallback@example.com',
+        ]);
+    }
 }
