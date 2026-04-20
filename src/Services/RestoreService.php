@@ -596,11 +596,17 @@ class RestoreService
 
     protected function shouldDisableForeignKeyConstraints(): bool
     {
-        return (bool) $this->config->get('backup.restore.disable_foreign_key_constraints', true);
+        return (bool) $this->settings->get(
+            'restore.disable_foreign_key_constraints',
+            $this->config->get('backup.restore.disable_foreign_key_constraints', true)
+        );
     }
 
     protected function restoreInsertBatchSize(): int
     {
-        return max(1, (int) $this->config->get('backup.restore.insert_batch_size', 500));
+        return max(1, (int) $this->settings->get(
+            'restore.insert_batch_size',
+            $this->config->get('backup.restore.insert_batch_size', 500)
+        ));
     }
 }

@@ -3,6 +3,7 @@
 namespace BhavneeshGoyal\LaravelSmartBackup\Tests\Feature;
 
 use BhavneeshGoyal\LaravelSmartBackup\Services\RestoreService;
+use BhavneeshGoyal\LaravelSmartBackup\Services\SettingsService;
 use BhavneeshGoyal\LaravelSmartBackup\Tests\TestCase;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +62,63 @@ SQL);
         $this->assertSame('testing', $result['connection']);
         $this->assertDatabaseHas('users', [
             'email' => 'fallback@example.com',
+        ]);
+    }
+
+    public function test_restore_uses_saved_setting_for_foreign_key_constraint_toggle(): void
+    {
+        $root = $this->app['config']->get('filesystems.disks.local.root');
+        $path = 'backups/database/full/2026/04/10/users-settings-foreign-keys.sql';
+
+        File::ensureDirectoryExists(dirname($root . '/' . $path));
+        File::put($root . '/' . $path, <<<'SQL'
+INSERT INTO "users" ("name", "email", "created_at", "updated_at") VALUES ('FK Setting User', 'fk-setting@example.com', '2026-04-10 00:00:00', '2026-04-10 00:00:00');
+SQL);
+
+        $this->app['config']->set('backup.restore.disable_foreign_key_constraints', false);
+        $this->app->make(SettingsService::class)->set('restore.disable_foreign_key_constraints', true);
+
+        $result = $this->app->make(RestoreService::class)->restore([
+            'file' => $path,
+            'disk' => 'local',
+        ]);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertTrue($result['foreign_key_constraints_disabled'] ?? false);
+        $this->assertDatabaseHas('users', [
+            'email' => 'fk-setting@example.com',
+        ]);
+    }
+
+    public function test_restore_uses_saved_setting_for_insert_batch_size(): void
+    {
+        $root = $this->app['config']->get('filesystems.disks.local.root');
+        $path = 'backups/database/full/2026/04/10/users-settings-batch.json';
+
+        File::ensureDirectoryExists(dirname($root . '/' . $path));
+        File::put($root . '/' . $path, <<<'JSON'
+[
+{"name":"Batch One","email":"batch-one@example.com","created_at":"2026-04-10 00:00:00","updated_at":"2026-04-10 00:00:00"},
+{"name":"Batch Two","email":"batch-two@example.com","created_at":"2026-04-10 00:00:00","updated_at":"2026-04-10 00:00:00"}
+]
+JSON);
+
+        $this->app['config']->set('backup.restore.insert_batch_size', 500);
+        $this->app->make(SettingsService::class)->set('restore.insert_batch_size', 1);
+
+        $result = $this->app->make(RestoreService::class)->restore([
+            'file' => $path,
+            'disk' => 'local',
+        ]);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame(2, $result['rows']);
+        $this->assertSame(2, $result['statements']);
+        $this->assertDatabaseHas('users', [
+            'email' => 'batch-one@example.com',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'email' => 'batch-two@example.com',
         ]);
     }
 }

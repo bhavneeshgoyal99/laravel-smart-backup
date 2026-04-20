@@ -74,10 +74,6 @@
             ->keys()
             ->mapWithKeys(fn (string $disk) => [$disk => $disk])
             ->all(),
-        'restore.disk' => collect(config('filesystems.disks', []))
-            ->keys()
-            ->mapWithKeys(fn (string $disk) => [$disk => $disk])
-            ->all(),
     ];
 
     $fieldHelp = [
@@ -135,6 +131,16 @@
             'schedule.frequency' => ['monthly'],
         ],
     ];
+
+    if (isset($settings['restore']) && is_array($settings['restore'])) {
+        unset($settings['restore']['disk']);
+
+        if (array_key_exists('disable_foreign_key_constraints', $settings['restore'])) {
+            $disableForeignKeyConstraints = $settings['restore']['disable_foreign_key_constraints'];
+            unset($settings['restore']['disable_foreign_key_constraints']);
+            $settings['restore']['disable_foreign_key_constraints'] = $disableForeignKeyConstraints;
+        }
+    }
 
     $generalSettings = [];
     $groupedSettings = [];
