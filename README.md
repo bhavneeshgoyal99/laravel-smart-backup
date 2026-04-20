@@ -154,8 +154,8 @@ Enable the Blade dashboard:
 'ui' => [
     'enabled' => true,
     'prefix' => 'smart-backup',
-    'middleware' => ['web', 'auth'],
-    'name_prefix' => 'smart-backup.',
+    'middleware' => explode(',', env('SMART_BACKUP_UI_MIDDLEWARE', 'web,auth')),
+    'name_prefix' => env('SMART_BACKUP_UI_NAME_PREFIX', 'smart-backup.'),
 ],
 ```
 
