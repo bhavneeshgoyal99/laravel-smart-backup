@@ -8,6 +8,7 @@ use BhavneeshGoyal\LaravelSmartBackup\Drivers\DriverManager;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupHistoryService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupManager;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupMetadataService;
+use BhavneeshGoyal\LaravelSmartBackup\Services\BackupNotificationService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupStorageService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackgroundBackupLauncher;
@@ -58,8 +59,17 @@ class BackupServiceProvider extends ServiceProvider
             return new BackupMetadataService($app['db']);
         });
 
+        $this->app->singleton(BackupNotificationService::class, function ($app) {
+            return new BackupNotificationService(
+                $app,
+                $app['config'],
+                $app['log'],
+                $app->make(SettingsService::class)
+            );
+        });
+
         $this->app->singleton(BackgroundBackupLauncher::class, function ($app) {
-            return new BackgroundBackupLauncher($app);
+            return new BackgroundBackupLauncher($app, $app['log']);
         });
 
         $this->app->singleton(MaintenanceModeService::class, function ($app) {
@@ -78,6 +88,7 @@ class BackupServiceProvider extends ServiceProvider
                 $app->make(TableSelectionService::class),
                 $app->make(MaintenanceModeService::class),
                 $app->make(BackupMetadataService::class),
+                $app->make(BackupNotificationService::class),
                 $app['log'],
                 $app->make(SettingsService::class)
             );

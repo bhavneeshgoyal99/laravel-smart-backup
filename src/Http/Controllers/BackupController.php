@@ -311,6 +311,7 @@ class BackupController extends Controller
     public function updateSettings(Request $request): RedirectResponse
     {
         $request->validate([
+            'notification_email' => ['nullable', 'email'],
             'schedule.enabled' => ['nullable', 'boolean'],
             'schedule.frequency' => ['nullable', 'in:hourly,daily,weekly,monthly'],
             'schedule.hourly_minute' => ['nullable', 'integer', 'between:0,59'],

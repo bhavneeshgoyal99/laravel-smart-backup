@@ -3,12 +3,16 @@
 namespace BhavneeshGoyal\LaravelSmartBackup\Services;
 
 use Illuminate\Contracts\Container\Container;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
+use Throwable;
 
 class BackgroundBackupLauncher
 {
-    public function __construct(protected Container $container)
-    {
+    public function __construct(
+        protected Container $container,
+        protected LoggerInterface $logger
+    ) {
     }
 
     public function dispatch(array $options = []): void
@@ -22,34 +26,49 @@ class BackgroundBackupLauncher
 
         $command = $this->buildShellCommand($artisan, $options);
 
-        if (DIRECTORY_SEPARATOR === '\\') {
-            $process = @popen($command, 'r');
+        $this->logger->info('Starting background smart backup process.', [
+            'command' => $command,
+            'options' => $options,
+        ]);
+
+        try {
+            if (DIRECTORY_SEPARATOR === '\\') {
+                $process = @popen($command, 'r');
+
+                if (! is_resource($process)) {
+                    throw new RuntimeException('Unable to start the backup command in the background.');
+                }
+
+                pclose($process);
+
+                return;
+            }
+
+            $process = @proc_open(
+                ['/bin/sh', '-c', $command],
+                [
+                    ['file', '/dev/null', 'r'],
+                    ['file', '/dev/null', 'a'],
+                    ['file', '/dev/null', 'a'],
+                ],
+                $pipes,
+                $workingDirectory
+            );
 
             if (! is_resource($process)) {
                 throw new RuntimeException('Unable to start the backup command in the background.');
             }
 
-            pclose($process);
+            proc_close($process);
+        } catch (Throwable $exception) {
+            $this->logger->error('Failed to start background smart backup process.', [
+                'command' => $command,
+                'options' => $options,
+                'message' => $exception->getMessage(),
+            ]);
 
-            return;
+            throw $exception;
         }
-
-        $process = @proc_open(
-            ['/bin/sh', '-c', $command],
-            [
-                ['file', '/dev/null', 'r'],
-                ['file', '/dev/null', 'a'],
-                ['file', '/dev/null', 'a'],
-            ],
-            $pipes,
-            $workingDirectory
-        );
-
-        if (! is_resource($process)) {
-            throw new RuntimeException('Unable to start the backup command in the background.');
-        }
-
-        proc_close($process);
     }
 
     protected function buildShellCommand(string $artisan, array $options): string

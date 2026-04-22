@@ -16,6 +16,7 @@ class BackupService
         protected TableSelectionService $tableSelectionService,
         protected MaintenanceModeService $maintenanceModeService,
         protected BackupMetadataService $metadataService,
+        protected BackupNotificationService $notificationService,
         protected LoggerInterface $logger,
         protected SettingsService $settings
     ) {
@@ -52,8 +53,10 @@ class BackupService
         ];
         $runId = $this->metadataService->startRun($metadata);
         $metadata['run_id'] = $runId;
+        $failure = null;
 
         $this->logger->info('Starting smart backup run.', [
+            'run_id' => $runId,
             'mode' => $metadata['mode'],
             'driver' => $metadata['driver'],
             'format' => $metadata['format'],
@@ -139,10 +142,12 @@ class BackupService
                 $metadata['status'] = 'completed';
             });
         } catch (Throwable $exception) {
+            $failure = $exception;
             $metadata['status'] = 'failed';
             $metadata['error'] = $exception->getMessage();
 
             $this->logger->error('Smart backup run failed.', [
+                'run_id' => $runId,
                 'message' => $exception->getMessage(),
             ]);
 
@@ -153,7 +158,6 @@ class BackupService
                 ]);
             }
 
-            throw $exception;
         } finally {
             if ($metadata['status'] === 'completed' && $mode === 'incremental') {
                 $this->settings->set('incremental.last_backup_at', $startedAt->toDateTimeString());
@@ -165,6 +169,7 @@ class BackupService
             $this->metadataService->finalizeRun($runId, $metadata);
 
             $this->logger->info('Smart backup run finished.', [
+                'run_id' => $runId,
                 'status' => $metadata['status'],
                 'table_count' => $metadata['table_count'],
                 'maintenance_mode' => $metadata['maintenance_mode']['enabled'],
@@ -176,6 +181,14 @@ class BackupService
                 ]);
             }
         }
+
+        if ($failure !== null) {
+            $this->notificationService->sendFailed($metadata, $failure);
+
+            throw $failure;
+        }
+
+        $this->notificationService->sendCompleted($metadata);
 
         return $metadata;
     }

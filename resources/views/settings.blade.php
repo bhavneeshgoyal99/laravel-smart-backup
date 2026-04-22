@@ -77,6 +77,7 @@
     ];
 
     $fieldHelp = [
+        'notification_email' => 'Receive backup success and failure emails at this address.',
         'incremental.columns' => 'Enter one column name per line.',
         'tables.include' => 'Leave empty to include every table except those in the exclude list.',
         'tables.exclude' => 'Enter one table name per line.',
@@ -88,6 +89,7 @@
     ];
 
     $fieldLabels = [
+        'notification_email' => 'Notification Email',
         'tables.include' => 'Include',
         'tables.exclude' => 'Exclude',
         'schedule.hourly_minute' => 'Hourly Minute',
@@ -152,6 +154,12 @@
         }
 
         $generalSettings[$key] = $value;
+    }
+
+    if (array_key_exists('notification_email', $generalSettings)) {
+        $notificationEmail = $generalSettings['notification_email'];
+        unset($generalSettings['notification_email']);
+        $generalSettings['notification_email'] = $notificationEmail;
     }
 
     $leafCount = 0;
