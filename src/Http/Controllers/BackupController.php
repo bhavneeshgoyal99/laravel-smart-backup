@@ -4,6 +4,7 @@ namespace BhavneeshGoyal\LaravelSmartBackup\Http\Controllers;
 
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupManager;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupHistoryService;
+use BhavneeshGoyal\LaravelSmartBackup\Services\BackgroundBackupLauncher;
 use BhavneeshGoyal\LaravelSmartBackup\Services\RestoreService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\SettingsService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\TableSelectionService;
@@ -19,6 +20,7 @@ class BackupController extends Controller
 {
     public function __construct(
         protected BackupManager $backupManager,
+        protected BackgroundBackupLauncher $backgroundBackupLauncher,
         protected RestoreService $restoreService,
         protected BackupHistoryService $history,
         protected Config $config,
@@ -65,7 +67,46 @@ class BackupController extends Controller
             unset($data['tables_text']);
         }
 
-        $result = $this->backupManager->run($data);
+        if ($this->shouldRunInBackground()) {
+            try {
+                $this->backgroundBackupLauncher->dispatch($data);
+            } catch (Throwable $exception) {
+                if (! $request->expectsJson()) {
+                    return redirect()
+                        ->route($this->routeName('backups.index'))
+                        ->with('error', $exception->getMessage());
+                }
+
+                return response()->json([
+                    'message' => $exception->getMessage(),
+                ], 500);
+            }
+
+            if (! $request->expectsJson()) {
+                return redirect()
+                    ->route($this->routeName('backups.index'))
+                    ->with('status', 'Backup started in the background.');
+            }
+
+            return response()->json([
+                'message' => 'Backup started in the background.',
+                'status' => 'accepted',
+            ], 202);
+        }
+
+        try {
+            $result = $this->backupManager->run($data);
+        } catch (Throwable $exception) {
+            if (! $request->expectsJson()) {
+                return redirect()
+                    ->route($this->routeName('backups.index'))
+                    ->with('error', $exception->getMessage());
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
 
         if (! $request->expectsJson()) {
             return redirect()
@@ -222,6 +263,11 @@ class BackupController extends Controller
         return response()->json([
             'message' => 'Backup deleted successfully.',
         ]);
+    }
+
+    protected function shouldRunInBackground(): bool
+    {
+        return (bool) $this->config->get('backup.ui.dispatch_after_response', true);
     }
 
     public function settings(): View

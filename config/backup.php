@@ -182,6 +182,7 @@ return [
         'prefix' => env('SMART_BACKUP_UI_PREFIX', 'smart-backup'),
         'middleware' => array_values(array_filter(array_map('trim', explode(',', (string) env('SMART_BACKUP_UI_MIDDLEWARE', 'web'))))),
         'name_prefix' => env('SMART_BACKUP_UI_NAME_PREFIX', 'smart-backup.'),
+        'dispatch_after_response' => (bool) env('SMART_BACKUP_UI_DISPATCH_AFTER_RESPONSE', true),
     ],
 
     /*

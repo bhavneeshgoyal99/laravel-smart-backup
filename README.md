@@ -166,6 +166,19 @@ Dashboard includes:
 - Restore backup form
 - Settings page
 
+When the dashboard triggers a backup, the package starts
+`php artisan backup:run` in a detached background process by default.
+This avoids reverse-proxy timeouts for large production backups while
+keeping `php artisan backup:run` synchronous for CLI and scheduler usage.
+
+Disable that behavior only if you explicitly want the web request to wait:
+
+```php
+'ui' => [
+    'dispatch_after_response' => false,
+],
+```
+
 ## Storage Structure
 
 Backups are stored in structured folders by mode and date.

@@ -10,6 +10,7 @@ use BhavneeshGoyal\LaravelSmartBackup\Services\BackupManager;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupMetadataService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\BackupStorageService;
+use BhavneeshGoyal\LaravelSmartBackup\Services\BackgroundBackupLauncher;
 use BhavneeshGoyal\LaravelSmartBackup\Services\MaintenanceModeService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\RestoreService;
 use BhavneeshGoyal\LaravelSmartBackup\Services\SchedulerService;
@@ -55,6 +56,10 @@ class BackupServiceProvider extends ServiceProvider
 
         $this->app->singleton(BackupMetadataService::class, function ($app) {
             return new BackupMetadataService($app['db']);
+        });
+
+        $this->app->singleton(BackgroundBackupLauncher::class, function ($app) {
+            return new BackgroundBackupLauncher($app);
         });
 
         $this->app->singleton(MaintenanceModeService::class, function ($app) {
