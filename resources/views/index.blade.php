@@ -116,12 +116,24 @@
                 <th>Status</th>
                 <th>Format</th>
                 <th>Started</th>
+                <th>Location</th>
                 <th>Files</th>
                 <th>Action</th>
             </tr>
             </thead>
             <tbody>
             @forelse ($backups as $backup)
+                @php
+                    $disk = isset($backup['disk']) && $backup['disk'] !== ''
+                        ? (string) $backup['disk']
+                        : null;
+                    $basePath = isset($backup['base_path']) && $backup['base_path'] !== ''
+                        ? trim((string) $backup['base_path'], '/')
+                        : null;
+                    $location = $disk !== null && $basePath !== null
+                        ? sprintf('(%s) %s', $disk, $basePath)
+                        : ($disk !== null ? sprintf('(%s)', $disk) : ($basePath ?? 'n/a'));
+                @endphp
                 <tr>
                     <td>#{{ $backup['id'] }}</td>
                     <td>{{ $backup['type'] }}</td>
@@ -132,6 +144,7 @@
                     </td>
                     <td>{{ $backup['format'] ?? 'n/a' }}</td>
                     <td>{{ $backup['started_at'] ?? 'n/a' }}</td>
+                    <td><code>{{ $location }}</code></td>
                     <td>
                         @if (count($backup['tables']) === 0)
                             <span class="muted">No files tracked</span>
@@ -151,7 +164,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="muted">No backup runs have been recorded yet.</td>
+                    <td colspan="8" class="muted">No backup runs have been recorded yet.</td>
                 </tr>
             @endforelse
             </tbody>
