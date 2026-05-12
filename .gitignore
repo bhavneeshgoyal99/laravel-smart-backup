@@ -10,3 +10,6 @@
 /storage/framework/sessions/*
 /storage/framework/testing/*
 /storage/framework/views/*
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
